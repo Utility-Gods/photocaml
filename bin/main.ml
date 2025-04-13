@@ -259,12 +259,23 @@ let () =
         |> Dream.html
     );
 
-    Dream.get "/album" (fun _ ->
-      let content = Template.Album.render in
-      Template.Layout.render
-        ~title:"Albums"
-        ~content
+    Dream.get "/album" (fun req ->
+      try%lwt
+        let%lwt albums = Dream.sql req (fun db ->
+          let%lwt result = Database.Db.get_all_albums db in
+          match result with
+          | Ok albums -> Lwt.return albums
+          | Error e -> Lwt.fail (Failure (Caqti_error.show e))
+        ) in
+        debug "Found %d albums" (List.length albums);
+        let content = Template.Album.render ~albums in
+        Template.Layout.render
+          ~title:"Albums"
+          ~content
         |> Dream.html
+      with exn ->
+        error "Exception in album listing: %s" (Printexc.to_string exn);
+        Dream.html ~status:`Internal_Server_Error "Error loading albums"
     );
 
     Dream.get "/album/new" (fun _ ->
@@ -288,7 +299,7 @@ let () =
             | Error e -> Lwt.fail (Failure (Caqti_error.show e)) (* Includes "not found" *) 
           )
         in
-        let content = Template.Album_detail.render in
+        let content = Template.Album_detail.render ~album in
         Template.Layout.render
           ~title:"Album Details"
           ~content
@@ -312,7 +323,7 @@ let () =
             | Error e -> Lwt.fail (Failure (Caqti_error.show e))
           )
         in
-        let content = Template.Upload.render in
+        let content = Template.Upload.render ~album in
         Template.Layout.render
           ~title:"Upload Photos"
           ~content

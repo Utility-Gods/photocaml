@@ -29,3 +29,4 @@ build
 
 
 db.sqlite
+db.sqlite-journal

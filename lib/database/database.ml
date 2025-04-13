@@ -3,60 +3,55 @@ module S3 = S3
 module Db = struct
   module T = struct
     type album = {
-      id: string;
-      name: string;
-      description: string option;
-      cover_image: string option;
-      slug: string;
-      created_at: Ptime.t;
+      id : string;
+      name : string;
+      description : string option;
+      cover_image : string option;
+      slug : string;
+      created_at : Ptime.t;
     }
 
     type photo = {
-      id: string;
-      album_id: string;
-      filename: string;
-      bucket_path: string;
-      width: int option;
-      height: int option;
-      size_bytes: int option;
-      uploaded_at: Ptime.t;
+      id : string;
+      album_id : string;
+      filename : string;
+      bucket_path : string;
+      width : int option;
+      height : int option;
+      size_bytes : int option;
+      uploaded_at : Ptime.t;
     }
 
     type share = {
-      id: string;
-      album_id: string;
-      share_token: string;
-      is_public: bool;
-      expires_at: Ptime.t option;
-      created_at: Ptime.t;
+      id : string;
+      album_id : string;
+      share_token : string;
+      is_public : bool;
+      expires_at : Ptime.t option;
+      created_at : Ptime.t;
     }
 
     type photo_paths = {
-      original: string;
-      thumbnail: string;
-      medium: string;
+      original : string;
+      thumbnail : string;
+      medium : string;
     }
   end
 
-    
   let create_album =
     [%rapper
       execute
         {sql|
           INSERT INTO albums (id, name, description, cover_image, slug)
           VALUES (%string{id}, %string{name}, %string?{description}, %string?{cover_image}, %string{slug})
-        |sql}
-    ]
+        |sql}]
 
-  
   let get_album =
     [%rapper
       get_one
         {sql|
           SELECT * FROM albums WHERE id = %string{id}
-        |sql}
-    ]
-
+        |sql}]
 
   let add_photo =
     [%rapper
@@ -64,18 +59,14 @@ module Db = struct
         {sql|
           INSERT INTO photos (id, album_id, filename, bucket_path, width, height, size_bytes)
           VALUES (%string{id}, %string{album_id}, %string{filename}, %string{bucket_path}, %int?{width}, %int?{height}, %int?{size_bytes})
-        |sql}
-    ]
-
+        |sql}]
 
   let get_photos_by_album =
     [%rapper
       get_many
         {sql|
           SELECT * FROM photos WHERE album_id = %string{album_id} ORDER BY uploaded_at DESC
-        |sql}
-    ]
-
+        |sql}]
 
   let create_share =
     [%rapper
@@ -83,12 +74,18 @@ module Db = struct
         {sql|
           INSERT INTO shares (id, album_id, share_token, is_public, expires_at)
           VALUES (%string{id}, %string{album_id}, %string{share_token}, %bool{is_public}, %ptime?{expires_at})
-        |sql}
-    ]
+        |sql}]
 
-  
+  let get_all_albums =
+    [%rapper
+      get_many
+        {sql|
+        SELECT @string{id}, @string{name}, @string?{description}, @string?{cover_image}, @string{slug}, @ptime{created_at}
+        FROM albums ORDER BY created_at DESC
+      |sql}
+       record_out]
 
-  let make_photo_paths photo : T.photo_paths = 
+  let make_photo_paths photo : T.photo_paths =
     let open T in
     let base_path = photo.bucket_path in
     let ext = Filename.extension photo.filename in
@@ -97,7 +94,7 @@ module Db = struct
       thumbnail = base_path ^ "_thumbnail" ^ ext;
       medium = base_path ^ "_medium" ^ ext;
     }
-    
+
   (* Generate a unique ID for a new record *)
   let generate_id () =
     let random_bytes = Bytes.create 16 in
@@ -113,10 +110,10 @@ module Db = struct
     in
     let buffer = Buffer.create 32 in
     for i = 0 to 15 do
-      let (hi, lo) = hex_of_char (Bytes.get random_bytes i) in
+      let hi, lo = hex_of_char (Bytes.get random_bytes i) in
       Buffer.add_char buffer hi;
       Buffer.add_char buffer lo;
-      if i = 3 || i = 5 || i = 7 || i = 9 then Buffer.add_char buffer '-';
+      if i = 3 || i = 5 || i = 7 || i = 9 then Buffer.add_char buffer '-'
     done;
     Buffer.contents buffer
 end
