@@ -10,7 +10,7 @@ let render ~albums =
     </a>
   </div>
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-  <%s String.concat "" (List.map (fun (album : Database.Db.album) ->
+  <%s! String.concat "" (List.map (fun (album : Database.Db.album) ->
     Printf.sprintf {|
     <div class="bg-white rounded-lg shadow-md overflow-hidden">
       <a href="/album/%s">
