@@ -1,2 +1,9 @@
 (library
- (name photocaml))
+ (name database)
+ (libraries caqti-lwt caqti-driver-sqlite3 ppx_rapper.runtime lwt logs)
+ (preprocess (pps ppx_rapper)))
+
+(library
+ (name photocaml_lib)
+ (public_name photocaml)
+)

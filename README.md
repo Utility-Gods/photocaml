@@ -58,3 +58,10 @@ Edit `main.ml`:
 ```ocaml
 Dream.run ~interface:"0.0.0.0" ~port:4000
 ```
+
+
+I am thinking that I can give user a bare minimum CLI to upload photos to a bucket, and then use the web app to segment them and share them with a link.
+
+I can use sqlite to store the references to the photos and the links.
+
+SO the CLI will only run locally and the web app will run on a server.
