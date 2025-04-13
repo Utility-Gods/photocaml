@@ -10,6 +10,12 @@ let () =
         "
     );
 
+    Dream.get "/:word" 
+      (fun req ->
+      Dream.param req "word"
+          |> Template.render
+          |> Dream.html
+    );
     Dream.get "/static/**" (Dream.static "./static");
   ]
 
