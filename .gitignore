@@ -1,0 +1,28 @@
+
+# Dune build artifacts
+_build/
+
+
+_opam/
+# Opam local switch
+.opam/
+
+# Editor/IDE
+*.merlin
+*.swp
+*.swo
+*.vscode/
+*.cmt
+*.cmti
+*.cmi
+*.cmx
+*.o
+*.annot
+
+# Binaries
+photo_app
+bin/main.exe
+
+# Misc
+.env
+build
