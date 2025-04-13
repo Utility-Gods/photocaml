@@ -1,16 +1,16 @@
 module S3 = S3
 
 module Db = struct
-  module T = struct
-    type album = {
-      id : string;
-      name : string;
-      description : string option;
-      cover_image : string option;
-      slug : string;
-      created_at : Ptime.t;
-    }
+  type album = {
+    id : string;
+    name : string;
+    description : string option;
+    cover_image : string option;
+    slug : string;
+    created_at : Ptime.t;
+  }
 
+  module T = struct
     type photo = {
       id : string;
       album_id : string;
@@ -50,9 +50,12 @@ module Db = struct
     [%rapper
       get_one
         {sql|
-          SELECT * FROM albums WHERE id = %string{id}
-        |sql}]
-
+          SELECT @string{id}, @string{name}, @string?{description}, @string?{cover_image}, @string{slug}, @ptime{created_at}
+          FROM albums WHERE id = %string{id}
+        |sql}
+        record_out]
+        
+     
   let add_photo =
     [%rapper
       execute
@@ -79,11 +82,11 @@ module Db = struct
   let get_all_albums =
     [%rapper
       get_many
-        {sql|
-        SELECT @string{id}, @string{name}, @string?{description}, @string?{cover_image}, @string{slug}, @ptime{created_at}
+        {sql| SELECT @string{id}, @string{name}, @string?{description}, @string?{cover_image}, @string{slug}, @ptime{created_at}
         FROM albums ORDER BY created_at DESC
-      |sql}
-       record_out]
+        |sql}
+        record_out]
+    ()
 
   let make_photo_paths photo : T.photo_paths =
     let open T in

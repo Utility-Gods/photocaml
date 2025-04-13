@@ -261,12 +261,12 @@ let () =
 
     Dream.get "/album" (fun req ->
       try%lwt
-        let%lwt albums = Dream.sql req (fun db ->
-          let%lwt result = Database.Db.get_all_albums db in
-          match result with
-          | Ok albums -> Lwt.return albums
-          | Error e -> Lwt.fail (Failure (Caqti_error.show e))
-        ) in
+      let%lwt albums = Dream.sql req (fun db ->
+        let%lwt result = Database.Db.get_all_albums db in (* Line 266 *)
+        match result with
+        | Ok albums -> Lwt.return albums
+        | Error e -> Lwt.fail (Failure (Caqti_error.show e))
+      ) in
         debug "Found %d albums" (List.length albums);
         let content = Template.Album.render ~albums in
         Template.Layout.render
@@ -296,7 +296,7 @@ let () =
             let%lwt result = Database.Db.get_album ~id:album_id db in
             match result with
             | Ok album_record -> Lwt.return album_record
-            | Error e -> Lwt.fail (Failure (Caqti_error.show e)) (* Includes "not found" *) 
+            | Error e -> Lwt.fail (Failure (Caqti_error.show e))
           )
         in
         let content = Template.Album_detail.render ~album in
@@ -306,7 +306,6 @@ let () =
           |> Dream.html
       with Failure msg ->
         Dream.log "Failed to get album %s: %s" album_id msg;
-        (* We could check `msg` here to distinguish "not found" if needed *) 
         Dream.html ~status:`Internal_Server_Error ("Failed to retrieve album: " ^ msg)
       )
     );

@@ -9,4 +9,23 @@ let render ~albums =
       New Album
     </a>
   </div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+  <%s String.concat "" (List.map (fun (album : Database.Db.album) ->
+    Printf.sprintf {|
+    <div class="bg-white rounded-lg shadow-md overflow-hidden">
+      <a href="/album/%s">
+        <div class="p-4">
+          <h2 class="text-xl font-semibold">%s</h2>
+          %s
+        </div>
+      </a>
+    </div>
+    |}
+    album.Database.Db.id
+    album.Database.Db.name
+    (match album.Database.Db.description with
+    | Some desc -> Printf.sprintf {|<p class="text-gray-600 mt-2">%s</p>|} desc
+    | None -> "")
+    ) albums) %>
+</div>
 </div>
