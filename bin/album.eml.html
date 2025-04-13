@@ -1,4 +1,4 @@
-let render ~albums =
+let render ~albums ~request =
 <div>
   <div class="flex justify-between items-center mb-6">
     <h1 class="text-3xl font-bold text-red-600">Your Albums</h1>
@@ -9,23 +9,53 @@ let render ~albums =
       New Album
     </a>
   </div>
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-  <%s! String.concat "" (List.map (fun (album : Database.Db.album) ->
-    Printf.sprintf {|
-    <div class="bg-white rounded-lg shadow-md overflow-hidden">
-      <a href="/album/%s">
+  <%s! Dream.csrf_tag request %>
+  
+    <div id="notification" class="fixed top-4 right-4"></div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <%s! String.concat "" (List.map (fun (album : Database.Db.album) ->
+      Printf.sprintf {|
+      <div class="bg-white rounded-lg shadow-md overflow-hidden" id="album-%s">
         <div class="p-4">
-          <h2 class="text-xl font-semibold">%s</h2>
-          %s
+          <div class="flex justify-between items-start">
+            <a href="/album/%s">
+              <h2 class="text-xl font-semibold">%s</h2>
+              %s
+            </a>
+            <button class="text-red-600 hover:text-red-800 transition" hx-delete="/album/%s"
+              hx-confirm="Are you sure you want to delete this album?" hx-target="#album-%s" hx-swap="outerHTML" hx-trigger="click">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd"
+                  d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                  clip-rule="evenodd" />
+              </svg>
+            </button>
+          </div>
         </div>
-      </a>
-    </div>
-    |}
-    album.Database.Db.id
-    album.Database.Db.name
-    (match album.Database.Db.description with
-    | Some desc -> Printf.sprintf {|<p class="text-gray-600 mt-2">%s</p>|} desc
-    | None -> "")
+        </div>
+        |}
+        album.Database.Db.id
+      album.Database.Db.id
+      album.Database.Db.name
+      (match album.Database.Db.description with
+      | Some desc -> Printf.sprintf {|<p class="text-gray-600 mt-2">%s</p>|} desc
+      | None -> "")
+      album.Database.Db.id
+      album.Database.Db.id
     ) albums) %>
+  </div>
 </div>
-</div>
+
+<script>
+  document.body.addEventListener('htmx:afterOnLoad', function (evt) {
+    if (evt.detail.elt.id === 'notification') {
+      setTimeout(function () {
+        evt.detail.elt.style.opacity = '0';
+        setTimeout(function () {
+          evt.detail.elt.remove();
+        }, 300);
+      }, 3000);
+    }
+  });
+</script>

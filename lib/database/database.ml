@@ -119,4 +119,11 @@ module Db = struct
       if i = 3 || i = 5 || i = 7 || i = 9 then Buffer.add_char buffer '-'
     done;
     Buffer.contents buffer
+
+  let delete_album =
+    [%rapper
+      execute
+        {sql|
+          DELETE FROM albums WHERE id = %string{id}
+        |sql}]
 end

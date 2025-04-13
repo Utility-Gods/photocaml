@@ -261,14 +261,14 @@ let () =
 
     Dream.get "/album" (fun req ->
       try%lwt
-      let%lwt albums = Dream.sql req (fun db ->
-        let%lwt result = Database.Db.get_all_albums db in (* Line 266 *)
-        match result with
-        | Ok albums -> Lwt.return albums
-        | Error e -> Lwt.fail (Failure (Caqti_error.show e))
-      ) in
+        let%lwt albums = Dream.sql req (fun db ->
+          let%lwt result = Database.Db.get_all_albums db in
+          match result with
+          | Ok albums -> Lwt.return albums
+          | Error e -> Lwt.fail (Failure (Caqti_error.show e))
+        ) in
         debug "Found %d albums" (List.length albums);
-        let content = Template.Album.render ~albums in
+        let content = Template.Album.render ~albums ~request:req in
         Template.Layout.render
           ~title:"Albums"
           ~content
@@ -335,6 +335,49 @@ let () =
     
     (* Handle photo uploads *)
     Dream.post "/album/:id/upload" Handlers.upload_photo_handler;
+
+    (* Delete album route handler *)
+    Dream.delete "/album/:id" (fun req ->
+      let album_id = Dream.param req "id" in
+      try%lwt
+        let%lwt result = Dream.sql req (fun db ->
+          Database.Db.delete_album ~id:album_id db
+        ) in
+        match result with
+        | Ok () -> 
+            Dream.html ~status:`OK {|
+              <div 
+                class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded"
+                role="alert"
+                hx-swap-oob="true"
+                id="notification"
+              >
+                Album deleted successfully
+              </div>
+            |}
+        | Error e -> 
+            Dream.html ~status:`Internal_Server_Error {|
+              <div 
+                class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded"
+                role="alert"
+                hx-swap-oob="true"
+                id="notification"
+              >
+                Failed to delete album
+              </div>
+            |}
+      with exn ->
+        Dream.html ~status:`Internal_Server_Error {|
+          <div 
+            class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded"
+            role="alert"
+            hx-swap-oob="true"
+            id="notification"
+          >
+            Error deleting album
+          </div>
+        |}
+    );
 
     (* Serve static files including uploads *)
     Dream.get "/static/**" (Dream.static "./static");
