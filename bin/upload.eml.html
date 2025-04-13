@@ -1,0 +1,45 @@
+let render =
+<div>
+  <div class="mb-6">
+    <a href="/album/id" class="text-red-600 hover:text-red-700 flex items-center">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+      </svg>
+      Back to Album
+    </a>
+  </div>
+
+  <h1 class="text-3xl font-bold text-red-600 mb-6">Upload Photos</h1>
+
+  <div class="bg-white shadow rounded-lg p-6 mb-6">
+    <form action="/album/id/upload" method="post" enctype="multipart/form-data" class="space-y-4">
+      <div>
+        <label for="photos" class="block text-sm font-medium text-gray-700 mb-1">Select photos to upload</label>
+        <input 
+          type="file" 
+          id="photos" 
+          name="photos" 
+          accept="image/*" 
+          multiple 
+          class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500"
+          required
+        />
+        <p class="mt-1 text-sm text-gray-500">You can select multiple files</p>
+      </div>
+
+      <div class="flex items-center justify-end">
+        <button 
+          type="submit" 
+          class="bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded transition"
+        >
+          Upload Photos
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Upload preview section could be added here with JavaScript -->
+  <div id="upload-preview" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+    <!-- Preview items will be added here via JS -->
+  </div>
+</div>

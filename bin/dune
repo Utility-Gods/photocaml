@@ -1,7 +1,10 @@
 (executable
 (public_name photocaml)
 (name main)
-(libraries dream))
+(libraries dream uuidm str lwt database)
+(preprocess (pps lwt_ppx))
+(flags (:standard -w -27-33)) ; Disable warnings for unused variables and opens
+)
 
 (rule
 (targets layout.ml)
@@ -26,4 +29,14 @@
 (rule
 (targets template.ml)
 (deps template.eml.html)
+(action (run dream_eml %{deps} --workspace %{workspace_root})))
+
+(rule
+(targets new_album.ml)
+(deps new_album.eml.html)
+(action (run dream_eml %{deps} --workspace %{workspace_root})))
+
+(rule
+(targets upload.ml)
+(deps upload.eml.html)
 (action (run dream_eml %{deps} --workspace %{workspace_root})))
