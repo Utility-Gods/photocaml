@@ -20,78 +20,68 @@ module Handlers = struct
     Buffer.contents buffer
 
   let create_album_handler req =
-    (* Try to extract parameters directly *)
-    try%lwt
-      let%lwt body = Dream.body req in
-      Printf.printf "[DEBUG] Form body: %s\n%!" body;
-      Dream.log "Form body: %s" body;
-      
-      (* Parse form data manually *)
-      let params = 
-        body 
-        |> String.split_on_char '&' 
-        |> List.map (fun param ->
-            match String.split_on_char '=' param with
-            | [key; value] -> 
-                let decoded_key = Uri.pct_decode key in
-                let decoded_value = Uri.pct_decode (String.map (fun c -> if c = '+' then ' ' else c) value) in
-                Printf.printf "[DEBUG] Param: %s = %s\n%!" decoded_key decoded_value;
-                (decoded_key, decoded_value)
-            | _ -> ("", "")
-          )
-        |> List.filter (fun (k, _) -> k <> "")
-      in
-      
-      (* Extract parameters *)
-      let name = 
-        try List.assoc "name" params
-        with Not_found -> 
-          Dream.log "Name field missing from form data";
-          ""
-      in
-      
-      (* Validate name is not empty *)
-      if String.trim name = "" then
-        Dream.html ~status:`Bad_Request "Album name is required"
-      else
-        let description = List.find_opt (fun (k, _) -> k = "description") params |> Option.map snd in
-        let id = Database.Db.generate_id () in
-        let slug = generate_slug name in
-        
-        Printf.printf "[DEBUG] Processing album creation: name=%s, description=%s, id=%s, slug=%s\n%!" 
-          name 
-          (match description with Some d -> d | None -> "None") 
-          id 
-          slug;
-        
-        try%lwt
-          (* Dream.sql expects callback returning 'a Lwt.t, raising exception on error *) 
-          let%lwt () = Dream.sql req (fun db ->
-            Printf.printf "[DEBUG] Creating album in database: %s\n%!" name;
-            Dream.log "Creating album: %s" name;
-            let%lwt result = Database.Db.create_album ~id ~name ~description ~cover_image:None ~slug db in
-            match result with
-            | Ok () -> 
-                Printf.printf "[DEBUG] Album created successfully\n%!";
-                Lwt.return_unit
-            | Error e -> 
-                let err_msg = Caqti_error.show e in
-                Printf.printf "[ERROR] Database error: %s\n%!" err_msg;
-                Dream.log "Database error: %s" err_msg;
-                Lwt.fail (Failure err_msg)
-          ) in
-          Printf.printf "[DEBUG] Redirecting to /album\n%!";
-          Dream.redirect req "/album"
-        with Failure msg ->
-          Printf.printf "[ERROR] Failed to create album: %s\n%!" msg;
-          Dream.log "Failed to create album: %s" msg;
-          Dream.html ~status:`Internal_Server_Error ("Failed to create album: " ^ msg)
+    debug "Processing album creation form";
     
-    with exn ->
-      let msg = Printexc.to_string exn in
-      Printf.printf "[ERROR] Exception in create_album_handler: %s\n%!" msg;
-      Dream.log "Exception in create_album_handler: %s" msg;
-      Dream.html ~status:`Internal_Server_Error ("Error processing form: " ^ msg)
+    match%lwt Dream.form req with
+    | `Ok params ->
+        debug "Form data received successfully";
+      
+        let name = 
+          try List.assoc "name" params
+          with Not_found -> 
+            error "Name field missing from form data";
+            Dream.log "Name field missing from form data";
+            ""
+        in
+        
+        (* Validate name is not empty *)
+        if String.trim name = "" then
+          Dream.html ~status:`Bad_Request "Album name is required"
+        else begin
+          let description = List.assoc_opt "description" params in
+          let id = Database.Db.generate_id () in
+          let slug = generate_slug name in
+          
+          debug "Creating album: name=%s, description=%s, id=%s, slug=%s" 
+            name 
+            (match description with Some d -> d | None -> "None") 
+            id 
+            slug;
+          
+          try%lwt
+            (* Dream.sql expects callback returning 'a Lwt.t, raising exception on error *) 
+            let%lwt () = Dream.sql req (fun db ->
+              debug "Creating album in database: %s" name;
+              Dream.log "Creating album: %s" name;
+              let%lwt result = Database.Db.create_album ~id ~name ~description ~cover_image:None ~slug db in
+              match result with
+              | Ok () -> 
+                  debug "Album created successfully";
+                  Lwt.return_unit
+              | Error e -> 
+                  let err_msg = Caqti_error.show e in
+                  error "Database error: %s" err_msg;
+                  Dream.log "Database error: %s" err_msg;
+                  Lwt.fail (Failure err_msg)
+            ) in
+            debug "Redirecting to /album";
+            Dream.redirect req "/album"
+          with Failure msg ->
+            error "Failed to create album: %s" msg;
+            Dream.log "Failed to create album: %s" msg;
+            Dream.html ~status:`Internal_Server_Error ("Failed to create album: " ^ msg)
+        end
+        
+    | `Wrong_content_type ->
+        let headers = Dream.all_headers req in
+        let headers_str = String.concat ", " 
+          (List.map (fun (k, v) -> k ^ ": " ^ v) headers) in
+        error "Wrong content type. Headers: %s" headers_str;
+        Dream.log "Wrong content type. Headers: %s" headers_str;
+        Dream.html ~status:`Bad_Request "Wrong content type for form submission. Expected application/x-www-form-urlencoded."
+    | _ -> 
+        error "Invalid form submission";
+        Dream.html ~status:`Bad_Request "Invalid form submission. Please check form data."
         
   let upload_photo_handler req =
     let album_id = Dream.param req "id" in
