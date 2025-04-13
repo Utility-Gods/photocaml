@@ -1,10 +1,29 @@
 (executable
- (public_name photocaml)
- (name main)
- (libraries dream))
-
+(public_name photocaml)
+(name main)
+(libraries dream))
 
 (rule
- (targets template.ml)
- (deps template.eml.html)
- (action (run dream_eml %{deps} --workspace %{workspace_root})))
+(targets layout.ml)
+(deps layout.eml.html)
+(action (run dream_eml %{deps} --workspace %{workspace_root})))
+
+(rule
+(targets home.ml)
+(deps home.eml.html)
+(action (run dream_eml %{deps} --workspace %{workspace_root})))
+
+(rule
+(targets album.ml)
+(deps album.eml.html)
+(action (run dream_eml %{deps} --workspace %{workspace_root})))
+
+(rule
+(targets album_detail.ml)
+(deps album_detail.eml.html)
+(action (run dream_eml %{deps} --workspace %{workspace_root})))
+
+(rule
+(targets template.ml)
+(deps template.eml.html)
+(action (run dream_eml %{deps} --workspace %{workspace_root})))
