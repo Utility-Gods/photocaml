@@ -14,16 +14,6 @@ depends: [
   "dune" {>= "3.18"}
   "ocaml"
   "odoc" {with-doc}
-  "caqti-driver-sqlite3"
-  "aws-s3"
-  "bimage"
-  "notty"
-  "lwt"
-  "uuidm"
-  "dotenv"
-  "caqti-lwt"
-  "ppx_rapper"
-  "logs"
 ]
 build: [
   ["dune" "subst"] {dev}
