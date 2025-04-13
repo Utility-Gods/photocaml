@@ -1,37 +1,97 @@
+let debug fmt = Printf.ksprintf (fun s -> Printf.printf "[DEBUG] %s\n%!" s) fmt
+let info fmt = Printf.ksprintf (fun s -> Printf.printf "[INFO] %s\n%!" s) fmt
+let warn fmt = Printf.ksprintf (fun s -> Printf.printf "[WARN] %s\n%!" s) fmt
+let error fmt = Printf.ksprintf (fun s -> Printf.printf "[ERROR] %s\n%!" s) fmt
+
 module Handlers = struct
+  (* Replace Str with standard library String functions *)
   let generate_slug name =
-    let open Str in
-    name 
-    |> String.lowercase_ascii
-    |> global_replace (regexp " +") "-"
-    |> global_replace (regexp "[^a-z0-9-]") ""
+    let name_lower = String.lowercase_ascii name in
+    let replace_spaces = 
+      let parts = String.split_on_char ' ' name_lower in
+      String.concat "-" parts
+    in
+    (* Filter out non-alphanumeric characters *)
+    let buffer = Buffer.create (String.length replace_spaces) in
+    String.iter (fun c ->
+      if (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c = '-' then
+        Buffer.add_char buffer c
+    ) replace_spaces;
+    Buffer.contents buffer
 
   let create_album_handler req =
-    match%lwt Dream.form req with
-    | `Ok params ->
-        let name = List.assoc "name" params in
-        let description = List.assoc_opt "description" params in
+    (* Try to extract parameters directly *)
+    try%lwt
+      let%lwt body = Dream.body req in
+      Printf.printf "[DEBUG] Form body: %s\n%!" body;
+      Dream.log "Form body: %s" body;
+      
+      (* Parse form data manually *)
+      let params = 
+        body 
+        |> String.split_on_char '&' 
+        |> List.map (fun param ->
+            match String.split_on_char '=' param with
+            | [key; value] -> 
+                let decoded_key = Uri.pct_decode key in
+                let decoded_value = Uri.pct_decode (String.map (fun c -> if c = '+' then ' ' else c) value) in
+                Printf.printf "[DEBUG] Param: %s = %s\n%!" decoded_key decoded_value;
+                (decoded_key, decoded_value)
+            | _ -> ("", "")
+          )
+        |> List.filter (fun (k, _) -> k <> "")
+      in
+      
+      (* Extract parameters *)
+      let name = 
+        try List.assoc "name" params
+        with Not_found -> 
+          Dream.log "Name field missing from form data";
+          ""
+      in
+      
+      (* Validate name is not empty *)
+      if String.trim name = "" then
+        Dream.html ~status:`Bad_Request "Album name is required"
+      else
+        let description = List.find_opt (fun (k, _) -> k = "description") params |> Option.map snd in
         let id = Database.Db.generate_id () in
         let slug = generate_slug name in
         
-        (try%lwt
+        Printf.printf "[DEBUG] Processing album creation: name=%s, description=%s, id=%s, slug=%s\n%!" 
+          name 
+          (match description with Some d -> d | None -> "None") 
+          id 
+          slug;
+        
+        try%lwt
           (* Dream.sql expects callback returning 'a Lwt.t, raising exception on error *) 
           let%lwt () = Dream.sql req (fun db ->
+            Printf.printf "[DEBUG] Creating album in database: %s\n%!" name;
+            Dream.log "Creating album: %s" name;
             let%lwt result = Database.Db.create_album ~id ~name ~description ~cover_image:None ~slug db in
             match result with
-            | Ok () -> Lwt.return_unit
-            | Error e -> Lwt.fail (Failure (Caqti_error.show e))
+            | Ok () -> 
+                Printf.printf "[DEBUG] Album created successfully\n%!";
+                Lwt.return_unit
+            | Error e -> 
+                let err_msg = Caqti_error.show e in
+                Printf.printf "[ERROR] Database error: %s\n%!" err_msg;
+                Dream.log "Database error: %s" err_msg;
+                Lwt.fail (Failure err_msg)
           ) in
+          Printf.printf "[DEBUG] Redirecting to /album\n%!";
           Dream.redirect req "/album"
         with Failure msg ->
+          Printf.printf "[ERROR] Failed to create album: %s\n%!" msg;
           Dream.log "Failed to create album: %s" msg;
           Dream.html ~status:`Internal_Server_Error ("Failed to create album: " ^ msg)
-        )
-        
-    | `Wrong_content_type ->
-        Dream.html ~status:`Bad_Request "Wrong content type"
-    | _ -> (* Catch other form errors *) 
-        Dream.html ~status:`Bad_Request "Invalid form submission"
+    
+    with exn ->
+      let msg = Printexc.to_string exn in
+      Printf.printf "[ERROR] Exception in create_album_handler: %s\n%!" msg;
+      Dream.log "Exception in create_album_handler: %s" msg;
+      Dream.html ~status:`Internal_Server_Error ("Error processing form: " ^ msg)
         
   let upload_photo_handler req =
     let album_id = Dream.param req "id" in
@@ -180,8 +240,16 @@ module Handlers = struct
 end
 
 let () =
+  (* Use simple Printf for logging *)
+  Random.self_init(); (* Initialize random seed for ID generation *)
+  
   Dream.run ~interface:"0.0.0.0" ~port:4000 
   @@ Dream.logger
+  @@ (fun handler req -> 
+      let meth = Dream.method_to_string (Dream.method_ req) in
+      let target = Dream.target req in
+      Printf.printf "[REQUEST] %s %s\n%!" meth target;
+      handler req)
   @@ Dream.sql_pool "sqlite3:db.sqlite"
   @@ Dream.router [
     Dream.get "/" (fun _ ->

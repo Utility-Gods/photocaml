@@ -7,6 +7,7 @@
    caqti-driver-sqlite3 
    ppx_rapper_lwt
    ptime
-   lwt)
+   lwt
+   lwt.unix)
  (preprocess 
    (pps ppx_rapper lwt_ppx)))

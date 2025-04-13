@@ -1,4 +1,4 @@
-(lang dune 3.18)
+(lang dune 3.14)
 
 (name photocaml)
 
@@ -19,7 +19,18 @@
  (name photocaml)
  (synopsis "A photosharing app in OCaml with Dream")
  (description "Upload photos to a bucket, segment them, and share them with a link.")
- (depends ocaml)
+ (depends 
+  ocaml
+  dune
+  dream
+  caqti
+  caqti-lwt
+  caqti-driver-sqlite3
+  lwt
+  lwt_ppx
+  ppx_rapper
+  uuidm
+  ptime)
  (tags
   ("photosharing" "photos" "dream" "ocaml" "utility-gods")))
 

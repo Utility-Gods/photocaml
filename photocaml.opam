@@ -11,8 +11,17 @@ homepage: "https://github.com/utility-gods/photocaml"
 doc: "https://photocaml.utilitygods.com"
 bug-reports: "https://github.com/utility-gods/photocaml/issues"
 depends: [
-  "dune" {>= "3.18"}
   "ocaml"
+  "dune" {>= "3.14"}
+  "dream"
+  "caqti"
+  "caqti-lwt"
+  "caqti-driver-sqlite3"
+  "lwt"
+  "lwt_ppx"
+  "ppx_rapper"
+  "uuidm"
+  "ptime"
   "odoc" {with-doc}
 ]
 build: [
@@ -30,4 +39,3 @@ build: [
   ]
 ]
 dev-repo: "git+https://github.com/utility-gods/photocaml.git"
-x-maintenance-intent: ["(latest)"]

@@ -26,3 +26,6 @@ bin/main.exe
 # Misc
 .env
 build
+
+
+db.sqlite

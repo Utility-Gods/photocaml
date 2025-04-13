@@ -39,7 +39,6 @@ module Db = struct
   end
 
     
-
   let create_album =
     [%rapper
       execute
