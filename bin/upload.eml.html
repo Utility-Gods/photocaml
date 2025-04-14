@@ -1,4 +1,4 @@
-let render ~(album : Database.Db.album) =
+let render ~(album : Database.Db.album) ~request =
 <div>
   <div class="mb-6">
     <a href="/album/<%s album.Database.Db.id %>" class="text-red-600 hover:text-red-700 flex items-center">
@@ -15,17 +15,18 @@ let render ~(album : Database.Db.album) =
   </div>
 
   <form action="/album/<%s album.Database.Db.id %>/upload" method="POST" enctype="multipart/form-data" class="space-y-4">
+    <%s! Dream.csrf_tag request %>
     <div>
       <label class="block text-sm font-medium text-gray-700">Choose Photos</label>
       <input type="file" name="photos" multiple accept="image/*" class="mt-1 block w-full" required>
-      </div>
+    </div>
 
     <div>
       <button type="submit" class="bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded transition">
         Upload Photos
       </button>
     </div>
-    </form>
+  </form>
 
   <!-- Upload preview section could be added here with JavaScript -->
   <div id="upload-preview" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">

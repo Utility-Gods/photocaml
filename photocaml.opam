@@ -22,6 +22,11 @@ depends: [
   "ppx_rapper"
   "uuidm"
   "ptime"
+  "dotenv"
+  "cohttp"
+  "cohttp-async"
+  "cohttp-lwt-unix"
+  "uri"
   "odoc" {with-doc}
 ]
 build: [

@@ -30,7 +30,12 @@
   lwt_ppx
   ppx_rapper
   uuidm
-  ptime)
+  ptime
+  dotenv
+  cohttp
+  cohttp-async
+  cohttp-lwt-unix
+  uri)
  (tags
   ("photosharing" "photos" "dream" "ocaml" "utility-gods")))
 

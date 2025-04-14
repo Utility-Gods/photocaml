@@ -196,7 +196,7 @@ module Handlers = struct
                       Lwt.return_unit)
                       
               | Error err -> 
-                  Dream.log "S3 upload error: %s" err;
+                  Dream.log "S3 upload error: %s" (Database.S3.string_of_upload_error err);
                   
                   (* Clean up temp file *)
                   let%lwt _ = 
@@ -244,6 +244,7 @@ let () =
   Dream.run ~interface:"0.0.0.0" ~port:4000 
   @@ Dream.logger
   @@ Dream.memory_sessions
+  @@ Dream.origin_referrer_check  (* Added CSRF protection *)
   @@ (fun handler req -> 
       let meth = Dream.method_to_string (Dream.method_ req) in
       let target = Dream.target req in
@@ -322,7 +323,7 @@ let () =
             | Error e -> Lwt.fail (Failure (Caqti_error.show e))
           )
         in
-        let content = Template.Upload.render ~album in
+        let content = Template.Upload.render ~album ~request:req in
         Template.Layout.render
           ~title:"Upload Photos"
           ~content
