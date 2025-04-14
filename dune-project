@@ -35,7 +35,9 @@
   cohttp
   cohttp-async
   cohttp-lwt-unix
-  uri)
+  uri
+  nocrypto
+  digestif)
  (tags
   ("photosharing" "photos" "dream" "ocaml" "utility-gods")))
 

@@ -27,6 +27,8 @@ depends: [
   "cohttp-async"
   "cohttp-lwt-unix"
   "uri"
+  "nocrypto"
+  "digestif"
   "odoc" {with-doc}
 ]
 build: [

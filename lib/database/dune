@@ -18,6 +18,7 @@
    str
    cohttp
    cohttp-lwt-unix
-   uri)
+   uri
+   digestif)
  (preprocess 
    (pps ppx_rapper lwt_ppx ppx_deriving.show)))
