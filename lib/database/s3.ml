@@ -63,13 +63,7 @@ let () =
 
 (* AWS Signature V4 helpers *)
 let hmac_sha256 ~key message =
-  (* Debug HMAC *)
-  let result = Digestif.SHA256.hmac_string ~key message |> Digestif.SHA256.to_hex in
-  Printf.printf "[DEBUG] HMAC: key=%s, message=%s, result=%s\n" 
-    (if String.length key > 20 then String.sub key 0 20 ^ "..." else key)
-    (if String.length message > 20 then String.sub message 0 20 ^ "..." else message)
-    result;
-  result
+  Digestif.SHA256.hmac_string ~key message |> Digestif.SHA256.to_raw_string
 
 let get_date_stamp () =
   let tm = Unix.gmtime (Unix.time ()) in
@@ -121,14 +115,9 @@ let validate_config () =
     Ok ()
 
 (* Create AWS Signature v4 authorization *)
-let make_authorization ~http_method ~content_type ~object_key ~contents =
+let make_authorization ~http_method ~content_type ~object_key ~contents ~payload_hash =
   let amz_date = get_amz_date () in
   let date_stamp = get_date_stamp () in
-  
-  (* Calculate content hash *)
-  let payload_hash = 
-    Digestif.SHA256.digest_string contents |> Digestif.SHA256.to_hex
-  in
   
   (* Task 1: Create canonical request *)
   let canonical_uri = Printf.sprintf "/%s/%s" bucket object_key in
@@ -163,38 +152,25 @@ let make_authorization ~http_method ~content_type ~object_key ~contents =
     date_stamp
     region
   in
-  let canonical_request_hash = Digestif.SHA256.digest_string canonical_request |> Digestif.SHA256.to_hex in
   
   let string_to_sign = Printf.sprintf
     "%s\n%s\n%s\n%s"
     algorithm
     amz_date
     credential_scope
-    canonical_request_hash
+    (Digestif.SHA256.digest_string canonical_request |> Digestif.SHA256.to_hex)
   in
   
   Printf.printf "[DEBUG] String to sign:\n%s\n" string_to_sign;
   
-  (* Task 3: Calculate signature *)
+  (* Task 3: Calculate signature - working with raw bytes *)
   let k_secret = "AWS4" ^ app_key in
-  let k_date = 
-    Digestif.SHA256.hmac_string ~key:k_secret date_stamp 
-    |> Digestif.SHA256.to_raw_string
-  in
-  let k_region = 
-    Digestif.SHA256.hmac_string ~key:k_date region
-    |> Digestif.SHA256.to_raw_string
-  in
-  let k_service = 
-    Digestif.SHA256.hmac_string ~key:k_region "s3"
-    |> Digestif.SHA256.to_raw_string
-  in
-  let k_signing = 
-    Digestif.SHA256.hmac_string ~key:k_service "aws4_request"
-    |> Digestif.SHA256.to_raw_string
-  in
+  let k_date = hmac_sha256 ~key:k_secret date_stamp in
+  let k_region = hmac_sha256 ~key:k_date region in
+  let k_service = hmac_sha256 ~key:k_region "s3" in
+  let k_signing = hmac_sha256 ~key:k_service "aws4_request" in
   let signature = 
-    Digestif.SHA256.hmac_string ~key:k_signing string_to_sign
+    Digestif.SHA256.hmac_string ~key:k_signing string_to_sign 
     |> Digestif.SHA256.to_hex
   in
   
@@ -244,8 +220,8 @@ let upload_file ~album_id ~file_path ~filename =
       
       Printf.printf "[DEBUG] Uploading to: %s\n" uri_string;
       
-      (* Read file contents as binary *)
-      let* file_contents = 
+      (* Read file and calculate hash in one pass *)
+      let* file_result = 
         try%lwt
           Printf.printf "[DEBUG] Reading file: %s\n" file_path;
           let%lwt fd = Lwt_unix.openfile file_path [Unix.O_RDONLY] 0o644 in
@@ -260,15 +236,17 @@ let upload_file ~album_id ~file_path ~filename =
           else begin
             Printf.printf "[DEBUG] Successfully read %d bytes\n" read_bytes;
             let contents = Bytes.to_string buffer in
-            Lwt.return (Ok contents)
+            (* Calculate hash as we read *)
+            let payload_hash = Digestif.SHA256.digest_string contents |> Digestif.SHA256.to_hex in
+            Lwt.return (Ok (contents, payload_hash))
           end
         with e -> 
           Lwt.return (Error (Internal_error (Printf.sprintf "Failed to read file: %s" (Printexc.to_string e))))
       in
       
-      match file_contents with
+      match file_result with
       | Error e -> Lwt.return (Error e)
-      | Ok contents ->
+      | Ok (contents, payload_hash) ->
           let upload_attempt () =
             try%lwt
               let uri = Uri.of_string uri_string in
@@ -280,6 +258,7 @@ let upload_file ~album_id ~file_path ~filename =
                 ~content_type
                 ~object_key
                 ~contents
+                ~payload_hash  (* Pass pre-calculated hash *)
               in
               
               (* Convert headers list to Cohttp.Header.t *)
