@@ -1,6 +1,4 @@
 open Lwt.Syntax
-open Cohttp
-open Cohttp_lwt_unix
 
 type upload_error = 
   | Configuration_error of string
@@ -65,7 +63,13 @@ let () =
 
 (* AWS Signature V4 helpers *)
 let hmac_sha256 ~key message =
-  Digestif.SHA256.hmac_string ~key message |> Digestif.SHA256.to_hex
+  (* Debug HMAC *)
+  let result = Digestif.SHA256.hmac_string ~key message |> Digestif.SHA256.to_hex in
+  Printf.printf "[DEBUG] HMAC: key=%s, message=%s, result=%s\n" 
+    (if String.length key > 20 then String.sub key 0 20 ^ "..." else key)
+    (if String.length message > 20 then String.sub message 0 20 ^ "..." else message)
+    result;
+  result
 
 let get_date_stamp () =
   let tm = Unix.gmtime (Unix.time ()) in
@@ -92,10 +96,10 @@ let prepare_path ~album_id filename =
     Filename.basename filename
     |> String.map (fun c -> if c = ' ' then '_' else c)
   in
-  let unique_filename = timestamp ^ "_" ^ safe_filename in
+  let unique_filename = album_id ^ "_" ^ timestamp ^ "_" ^ safe_filename in
   
-  (* Return full path as it would be in S3 bucket *)
-  Printf.sprintf "albums/%s/%s" album_id unique_filename
+  (* Return simple filename for the root of the bucket *)
+  unique_filename
 
 (* Gets a public URL for a key (path) *)
 let get_public_url key =
@@ -117,30 +121,40 @@ let validate_config () =
     Ok ()
 
 (* Create AWS Signature v4 authorization *)
-let make_authorization ~content_type ~content_length ~object_key =
+let make_authorization ~http_method ~content_type ~object_key ~contents =
   let amz_date = get_amz_date () in
   let date_stamp = get_date_stamp () in
+  
+  (* Calculate content hash *)
+  let payload_hash = 
+    Digestif.SHA256.digest_string contents |> Digestif.SHA256.to_hex
+  in
   
   (* Task 1: Create canonical request *)
   let canonical_uri = Printf.sprintf "/%s/%s" bucket object_key in
   let canonical_querystring = "" in
+  
+  (* Format canonical_headers exactly as required *)
   let canonical_headers = Printf.sprintf
-    "content-length:%d\ncontent-type:%s\nhost:%s\nx-amz-date:%s\n"
-    content_length
+    "content-type:%s\nhost:%s\nx-amz-content-sha256:%s\nx-amz-date:%s\n"
     content_type
     endpoint
+    payload_hash
     amz_date
   in
-  let signed_headers = "content-length;content-type;host;x-amz-date" in
-  let payload_hash = Digestif.SHA256.digest_string "" |> Digestif.SHA256.to_hex in
+  let signed_headers = "content-type;host;x-amz-content-sha256;x-amz-date" in
+  
   let canonical_request = Printf.sprintf
-    "PUT\n%s\n%s\n%s\n%s\n%s"
+    "%s\n%s\n%s\n%s\n%s\n%s"
+    http_method
     canonical_uri
     canonical_querystring
     canonical_headers
     signed_headers
     payload_hash
   in
+  
+  Printf.printf "[DEBUG] Canonical request:\n%s\n" canonical_request;
   
   (* Task 2: Create string to sign *)
   let algorithm = "AWS4-HMAC-SHA256" in
@@ -149,37 +163,63 @@ let make_authorization ~content_type ~content_length ~object_key =
     date_stamp
     region
   in
+  let canonical_request_hash = Digestif.SHA256.digest_string canonical_request |> Digestif.SHA256.to_hex in
+  
   let string_to_sign = Printf.sprintf
     "%s\n%s\n%s\n%s"
     algorithm
     amz_date
     credential_scope
-    (Digestif.SHA256.digest_string canonical_request |> Digestif.SHA256.to_hex)
+    canonical_request_hash
   in
   
+  Printf.printf "[DEBUG] String to sign:\n%s\n" string_to_sign;
+  
   (* Task 3: Calculate signature *)
-  let k_date = hmac_sha256 ~key:("AWS4" ^ app_key) date_stamp in
-  let k_region = hmac_sha256 ~key:k_date region in
-  let k_service = hmac_sha256 ~key:k_region "s3" in
-  let k_signing = hmac_sha256 ~key:k_service "aws4_request" in
-  let signature = hmac_sha256 ~key:k_signing string_to_sign in
+  let k_secret = "AWS4" ^ app_key in
+  let k_date = 
+    Digestif.SHA256.hmac_string ~key:k_secret date_stamp 
+    |> Digestif.SHA256.to_raw_string
+  in
+  let k_region = 
+    Digestif.SHA256.hmac_string ~key:k_date region
+    |> Digestif.SHA256.to_raw_string
+  in
+  let k_service = 
+    Digestif.SHA256.hmac_string ~key:k_region "s3"
+    |> Digestif.SHA256.to_raw_string
+  in
+  let k_signing = 
+    Digestif.SHA256.hmac_string ~key:k_service "aws4_request"
+    |> Digestif.SHA256.to_raw_string
+  in
+  let signature = 
+    Digestif.SHA256.hmac_string ~key:k_signing string_to_sign
+    |> Digestif.SHA256.to_hex
+  in
   
   (* Task 4: Create authorization header *)
+  let credential = Printf.sprintf "%s/%s/%s/s3/aws4_request" 
+    key_id date_stamp region in
+    
   let authorization = Printf.sprintf
-    "%s Credential=%s/%s, SignedHeaders=%s, Signature=%s"
+    "%s Credential=%s,SignedHeaders=%s,Signature=%s"
     algorithm
-    key_id
-    credential_scope
+    credential
     signed_headers
     signature
   in
+  
+  Printf.printf "[DEBUG] Authorization: %s\n" authorization;
   
   (* Return headers *)
   [
     ("Authorization", authorization);
     ("x-amz-date", amz_date);
+    ("x-amz-content-sha256", payload_hash);
     ("Content-Type", content_type);
-    ("Content-Length", string_of_int content_length);
+    ("Content-Length", string_of_int (String.length contents));
+    ("Host", endpoint);
   ]
 
 (* Exponential backoff helper *)
@@ -200,20 +240,28 @@ let upload_file ~album_id ~file_path ~filename =
   | Error e -> Lwt.return (Error e)
   | Ok () ->
       let object_key = prepare_path ~album_id filename in
-      let uri = Uri.make 
-        ~scheme:"https"
-        ~host:endpoint
-        ~path:(Printf.sprintf "/%s/%s" bucket object_key)
-        ()
-      in
+      let uri_string = Printf.sprintf "https://%s/%s/%s" endpoint bucket object_key in
       
-      Printf.printf "[DEBUG] Uploading to: %s\n" (Uri.to_string uri);
+      Printf.printf "[DEBUG] Uploading to: %s\n" uri_string;
       
-      (* Read file contents *)
+      (* Read file contents as binary *)
       let* file_contents = 
         try%lwt
-          let* contents = Lwt_io.with_file ~mode:Lwt_io.Input file_path Lwt_io.read in
-          Lwt.return (Ok contents)
+          Printf.printf "[DEBUG] Reading file: %s\n" file_path;
+          let%lwt fd = Lwt_unix.openfile file_path [Unix.O_RDONLY] 0o644 in
+          let%lwt stats = Lwt_unix.fstat fd in
+          let file_size = stats.st_size in
+          let buffer = Bytes.create file_size in
+          let%lwt read_bytes = Lwt_unix.read fd buffer 0 file_size in
+          let%lwt () = Lwt_unix.close fd in
+          
+          if read_bytes <> file_size then
+            Lwt.return (Error (Internal_error (Printf.sprintf "Failed to read entire file: %d/%d bytes" read_bytes file_size)))
+          else begin
+            Printf.printf "[DEBUG] Successfully read %d bytes\n" read_bytes;
+            let contents = Bytes.to_string buffer in
+            Lwt.return (Ok contents)
+          end
         with e -> 
           Lwt.return (Error (Internal_error (Printf.sprintf "Failed to read file: %s" (Printexc.to_string e))))
       in
@@ -221,38 +269,48 @@ let upload_file ~album_id ~file_path ~filename =
       match file_contents with
       | Error e -> Lwt.return (Error e)
       | Ok contents ->
-          let content_length = String.length contents in
-          let content_type = "application/octet-stream" in
-          let headers = Header.of_list (
-            make_authorization 
-              ~content_type 
-              ~content_length
-              ~object_key
-          ) in
-          
           let upload_attempt () =
             try%lwt
-              let* (response, body) = Client.put 
-                ~headers
-                ~body:(Cohttp_lwt.Body.of_string contents)
-                uri 
+              let uri = Uri.of_string uri_string in
+              
+              (* Create headers with AWS Signature V4 *)
+              let content_type = "application/octet-stream" in
+              let headers = make_authorization
+                ~http_method:"PUT"
+                ~content_type
+                ~object_key
+                ~contents
               in
               
-              let status = Response.status response |> Code.code_of_status in
-              match status with
-              | 200 | 201 -> 
-                  let url = get_public_url object_key in
-                  Lwt.return (Ok url)
-              | 408 -> (* Request timeout *)
-                  Lwt.fail (Failure "Retryable error: HTTP 408 Request Timeout")
-              | status when status >= 500 && status <= 599 ->
-                  (* Server errors *)
-                  Lwt.fail (Failure (Printf.sprintf "Retryable error: HTTP %d" status))
-              | _ ->
-                  let* error_body = Cohttp_lwt.Body.to_string body in
-                  Lwt.return (Error (Upload_failed (status, error_body)))
+              (* Convert headers list to Cohttp.Header.t *)
+              let headers = List.fold_left (fun h (name, value) ->
+                Cohttp.Header.add h name value
+              ) (Cohttp.Header.init ()) headers in
+              
+              (* Create body *)
+              let body = Cohttp_lwt.Body.of_string contents in
+              
+              (* Make request *)
+              let* (resp, body) = Cohttp_lwt_unix.Client.put ~headers ~body uri in
+              let status = Cohttp.Response.status resp in
+              let status_code = Cohttp.Code.code_of_status status in
+              
+              (* Read response body *)
+              let* body_str = Cohttp_lwt.Body.to_string body in
+              
+              Printf.printf "[DEBUG] Response status: %d\n" status_code;
+              Printf.printf "[DEBUG] Response body: %s\n" body_str;
+              
+              if status_code >= 200 && status_code < 300 then begin
+                let url = get_public_url object_key in
+                Printf.printf "[DEBUG] Success! Uploaded to: %s\n" url;
+                Lwt.return (Ok url)
+              end else begin
+                Printf.printf "[DEBUG] Upload failed with status: %d\n" status_code;
+                Lwt.return (Error (Upload_failed (status_code, body_str)))
+              end
             with e ->
-              Lwt.fail e (* Let retry logic handle the error *)
+              Lwt.fail e
           in
           
           try%lwt
@@ -265,9 +323,12 @@ let upload_data ~album_id ~data ~filename =
   let temp_file = Filename.temp_file "b2_upload" ".tmp" in
   
   try%lwt
-    (* Write the data to the temp file *)
-    let%lwt () = Lwt_io.with_file ~mode:Lwt_io.Output temp_file
-      (fun channel -> Lwt_io.write channel data) in
+    (* Write the data to the temp file in binary mode *)
+    let fd = Unix.openfile temp_file [Unix.O_WRONLY; Unix.O_CREAT; Unix.O_TRUNC] 0o644 in
+    let bytes_written = Unix.write fd (Bytes.of_string data) 0 (String.length data) in
+    Unix.close fd;
+    
+    Printf.printf "[DEBUG] Written %d bytes to temporary file %s\n" bytes_written temp_file;
     
     (* Upload the temp file *)
     let%lwt result = upload_file ~album_id ~file_path:temp_file ~filename in

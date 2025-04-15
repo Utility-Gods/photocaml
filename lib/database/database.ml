@@ -18,7 +18,7 @@ module Db = struct
       bucket_path : string;
       width : int option;
       height : int option;
-      size_bytes : int option;
+      size_bytg: int option;
       uploaded_at : Ptime.t;
     }
 
