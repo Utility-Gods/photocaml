@@ -323,3 +323,120 @@ let upload_data ~album_id ~data ~filename =
       with _ -> Lwt.return_unit 
     in
     Lwt.return (Error (Internal_error (Printexc.to_string exn)))
+
+(* Generate a presigned URL for an S3 object that expires after the specified number of seconds 
+   This follows AWS Signature Version 4 signing process which B2 supports
+   See: https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-query-string-auth.html *)
+let get_signed_url ~key ~expires_in =
+  (* First validate all our config is present (key_id, app_key, endpoint, etc) *)
+  match validate_config () with
+  | Error e -> Error e  (* Return early if missing any config *)
+  | Ok () ->
+      try
+        (* Get current timestamp in ISO8601 format: YYYYMMDDTHHMMSSZ *)
+        let amz_date = get_amz_date () in
+        (* Get date portion only: YYYYMMDD *)
+        let date_stamp = get_date_stamp () in
+        (* We're creating a GET request presigned URL *)
+        let http_method = "GET" in
+        
+        (* Create the canonical URI path - this is the path part of the URL
+           For B2 S3 compatibility, this includes bucket and key *)
+        let canonical_uri = Printf.sprintf "/%s/%s" bucket key in
+        
+        (* Create the credential scope which is used in both the query string
+           and the string to sign. Format: <date>/<region>/s3/aws4_request *)
+        let credential_scope = Printf.sprintf "%s/%s/s3/aws4_request"
+          date_stamp
+          region
+        in
+        
+        (* Build the canonical query string containing all the required presigned URL parameters:
+           - X-Amz-Algorithm: Always AWS4-HMAC-SHA256 for SigV4
+           - X-Amz-Credential: <key_id>/<credential_scope>
+           - X-Amz-Date: Current timestamp
+           - X-Amz-Expires: How long URL is valid for
+           - X-Amz-SignedHeaders: Which headers are part of the signature (just host for GET)
+           Note: We URL encode values to handle special characters *)
+        let canonical_querystring = Printf.sprintf
+          "X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=%s%%2F%s&X-Amz-Date=%s&X-Amz-Expires=%d&X-Amz-SignedHeaders=host"
+          (Uri.pct_encode key_id)
+          (Uri.pct_encode credential_scope)
+          amz_date
+          expires_in
+        in
+        
+        (* Create the canonical headers - for GET presigned URL we only need host *)
+        let canonical_headers = Printf.sprintf "host:%s\n" endpoint in
+        
+        (* Build the canonical request string which will be hashed and signed
+           Format is:
+           <HTTP method>\n
+           <Canonical URI>\n
+           <Canonical query string>\n
+           <Canonical headers>\n
+           <Signed headers>\n
+           UNSIGNED-PAYLOAD     <- Special value for presigned URLs *)
+        let canonical_request = Printf.sprintf "%s\n%s\n%s\n%s\nhost\nUNSIGNED-PAYLOAD"
+          http_method
+          canonical_uri
+          canonical_querystring
+          canonical_headers
+        in
+        
+        (* Log the canonical request for debugging *)
+        Printf.printf "[DEBUG] Canonical request:\n%s\n" canonical_request;
+        
+        (* Create the string to sign which combines:
+           - Algorithm name
+           - Current timestamp
+           - Credential scope
+           - Hash of canonical request *)
+        let string_to_sign = Printf.sprintf "AWS4-HMAC-SHA256\n%s\n%s\n%s"
+          amz_date
+          credential_scope
+          (Digestif.SHA256.digest_string canonical_request |> Digestif.SHA256.to_hex)
+        in
+        
+        (* Log the string to sign for debugging *)
+        Printf.printf "[DEBUG] String to sign:\n%s\n" string_to_sign;
+        
+        (* Calculate the signature using the AWS signature V4 algorithm:
+           1. Create signing key by chaining HMAC-SHA256 operations:
+              - Start with "AWS4" + secret key
+              - HMAC the date
+              - HMAC the region
+              - HMAC the service (s3)
+              - HMAC "aws4_request"
+           2. Use the final signing key to HMAC the string to sign
+           3. Convert the final HMAC to hex *)
+        let k_secret = "AWS4" ^ app_key in
+        let k_date = hmac_sha256 ~key:k_secret date_stamp in
+        let k_region = hmac_sha256 ~key:k_date region in
+        let k_service = hmac_sha256 ~key:k_region "s3" in
+        let k_signing = hmac_sha256 ~key:k_service "aws4_request" in
+        let signature = 
+          hmac_sha256 ~key:k_signing string_to_sign
+          |> Digestif.SHA256.of_raw_string
+          |> Digestif.SHA256.to_hex
+        in
+        
+        (* Finally, construct the complete presigned URL by combining:
+           - Endpoint (https://...)
+           - Canonical URI (bucket/key)
+           - Canonical query string (all the X-Amz-* params)
+           - The calculated signature *)
+        let url = Printf.sprintf "https://%s%s?%s&X-Amz-Signature=%s"
+          endpoint
+          canonical_uri
+          canonical_querystring
+          signature
+        in
+        
+        (* Log the final URL for debugging *)
+        Printf.printf "[DEBUG] Generated presigned URL:\n%s\n" url;
+        Ok url
+        
+      with e ->
+        (* Catch and wrap any errors that occur during URL generation *)
+        Error (Internal_error (Printexc.to_string e))
