@@ -1,43 +1,93 @@
+(* Import the S3 module which handles cloud storage operations *)
 module S3 = S3
 
+(* Define a Database module to encapsulate all database operations *)
 module Db = struct
+  (* Define the album record type
+     Learn more about OCaml records: https://ocaml.org/docs/records
+     Example:
+     let my_album = {
+       id = "123";
+       name = "Vacation 2024";
+       description = Some "Summer trip";
+       cover_image = None;
+       slug = "vacation-2024";
+       created_at = current_time;
+     } *)
   type album = {
-    id : string;
-    name : string;
-    description : string option;
-    cover_image : string option;
-    slug : string;
-    created_at : Ptime.t;
+    id : string;              (* Unique identifier for the album *)
+    name : string;            (* Album name *)
+    description : string option; (* Optional description. None if not provided *)
+    cover_image : string option; (* Optional path to cover image *)
+    slug : string;            (* URL-friendly version of name (e.g., "my-album") *)
+    created_at : Ptime.t;     (* Timestamp when album was created *)
   }
 
+  type photo = {
+    id : string;            (* Unique identifier for the photo *)
+    album_id : string;      (* Foreign key referencing the album *)
+    filename : string;      (* Original filename *)
+    bucket_path : string;   (* Path in S3 bucket *)
+    width : int option;     (* Optional image width in pixels *)
+    height : int option;    (* Optional image height in pixels *)
+    size_bytes : int option;  (* Optional file size in bytes *)
+    uploaded_at : Ptime.t;  (* Timestamp when photo was uploaded *)
+  }
+
+  (* Inner module for related types *)
   module T = struct
-    type photo = {
-      id : string;
-      album_id : string;
-      filename : string;
-      bucket_path : string;
-      width : int option;
-      height : int option;
-      size_bytg: int option;
-      uploaded_at : Ptime.t;
-    }
+    (* Photo record type
+       Example:
+       let my_photo = {
+         id = "456";
+         album_id = "123";
+         filename = "beach.jpg";
+         bucket_path = "photos/123/beach.jpg";
+         width = Some 1920;
+         height = Some 1080;
+         size_bytes = Some 1024000;
+         uploaded_at = current_time;
+       } *)
+  
 
+    (* Share record type for album sharing functionality
+       Example:
+       let my_share = {
+         id = "789";
+         album_id = "123";
+         share_token = "abc123";
+         is_public = true;
+         expires_at = Some expiry_date;
+         created_at = current_time;
+       } *)
     type share = {
-      id : string;
-      album_id : string;
-      share_token : string;
-      is_public : bool;
-      expires_at : Ptime.t option;
-      created_at : Ptime.t;
+      id : string;            (* Unique identifier for the share *)
+      album_id : string;      (* Foreign key referencing the album *)
+      share_token : string;   (* Unique token for accessing shared album *)
+      is_public : bool;       (* Whether the share is public *)
+      expires_at : Ptime.t option; (* Optional expiration date *)
+      created_at : Ptime.t;   (* When the share was created *)
     }
 
+    (* Photo paths for different sizes of the same photo
+       Example:
+       let paths = {
+         original = "photos/123/beach.jpg";
+         thumbnail = "photos/123/beach_thumbnail.jpg";
+         medium = "photos/123/beach_medium.jpg";
+       } *)
     type photo_paths = {
-      original : string;
-      thumbnail : string;
-      medium : string;
+      original : string;      (* Path to original size image *)
+      thumbnail : string;     (* Path to thumbnail size *)
+      medium : string;        (* Path to medium size *)
     }
   end
 
+  (* Database operations using ppx_rapper for type-safe SQL
+     Learn more: https://github.com/roddyyaga/ppx_rapper *)
+
+  (* Create a new album
+     Usage: create_album ~id:"123" ~name:"Vacation" ~description:(Some "Trip") ~cover_image:None ~slug:"vacation" db *)
   let create_album =
     [%rapper
       execute
@@ -46,6 +96,8 @@ module Db = struct
           VALUES (%string{id}, %string{name}, %string?{description}, %string?{cover_image}, %string{slug})
         |sql}]
 
+  (* Get a single album by ID
+     Usage: get_album ~id:"123" db *)
   let get_album =
     [%rapper
       get_one
@@ -54,8 +106,9 @@ module Db = struct
           FROM albums WHERE id = %string{id}
         |sql}
         record_out]
-        
-     
+
+  (* Add a new photo to an album
+     Usage: add_photo ~id:"456" ~album_id:"123" ~filename:"beach.jpg" ~bucket_path:"..." db *)
   let add_photo =
     [%rapper
       execute
@@ -64,13 +117,19 @@ module Db = struct
           VALUES (%string{id}, %string{album_id}, %string{filename}, %string{bucket_path}, %int?{width}, %int?{height}, %int?{size_bytes})
         |sql}]
 
+  (* Get all photos in an album
+     Usage: get_photos_by_album ~album_id:"123" db *)
   let get_photos_by_album =
     [%rapper
       get_many
         {sql|
-          SELECT * FROM photos WHERE album_id = %string{album_id} ORDER BY uploaded_at DESC
-        |sql}]
+          SELECT @string{id}, @string{album_id}, @string{filename}, @string{bucket_path}, @int?{width}, @int?{height}, @int?{size_bytes}, @ptime{uploaded_at}
+          FROM photos WHERE album_id = %string{album_id} ORDER BY uploaded_at DESC
+        |sql}
+        record_out]
 
+  (* Create a new share for an album
+     Usage: create_share ~id:"789" ~album_id:"123" ~share_token:"abc123" ~is_public:true ~expires_at:None db *)
   let create_share =
     [%rapper
       execute
@@ -79,6 +138,8 @@ module Db = struct
           VALUES (%string{id}, %string{album_id}, %string{share_token}, %bool{is_public}, %ptime?{expires_at})
         |sql}]
 
+  (* Get all albums ordered by creation date
+     Usage: get_all_albums db *)
   let get_all_albums =
     [%rapper
       get_many
@@ -88,30 +149,39 @@ module Db = struct
         record_out]
     ()
 
-  let make_photo_paths photo : T.photo_paths =
-    let open T in
+  (* Generate paths for different sizes of a photo
+     Usage: 
+     let photo = get_photo ...
+     let paths = make_photo_paths photo *)
+  let make_photo_paths (photo : photo) : T.photo_paths =
     let base_path = photo.bucket_path in
-    let ext = Filename.extension photo.filename in
+    let ext = Filename.extension photo.filename in (* Get file extension *)
     {
       original = base_path;
-      thumbnail = base_path ^ "_thumbnail" ^ ext;
-      medium = base_path ^ "_medium" ^ ext;
+      thumbnail = base_path ^ "_thumbnail" ^ ext; (* Append _thumbnail to base path *)
+      medium = base_path ^ "_medium" ^ ext;       (* Append _medium to base path *)
     }
 
-  (* Generate a unique ID for a new record *)
+  (* Generate a unique ID for database records
+     Usage: let new_id = generate_id () *)
   let generate_id () =
+    (* Create 16 bytes for UUID *)
     let random_bytes = Bytes.create 16 in
+    (* Fill with random values *)
     for i = 0 to 15 do
       Bytes.set random_bytes i (Char.chr (Random.int 256))
     done;
+    (* Convert each byte to hex *)
     let hex_of_char c =
       let code = Char.code c in
-      let hi = code lsr 4 in
-      let lo = code land 0xf in
+      let hi = code lsr 4 in (* Get high 4 bits *)
+      let lo = code land 0xf in (* Get low 4 bits *)
       let to_hex n = if n < 10 then Char.chr (n + 48) else Char.chr (n + 87) in
       (to_hex hi, to_hex lo)
     in
+    (* Create string buffer for result *)
     let buffer = Buffer.create 32 in
+    (* Convert bytes to hex string with dashes *)
     for i = 0 to 15 do
       let hi, lo = hex_of_char (Bytes.get random_bytes i) in
       Buffer.add_char buffer hi;
@@ -120,6 +190,8 @@ module Db = struct
     done;
     Buffer.contents buffer
 
+  (* Delete an album by ID
+     Usage: delete_album ~id:"123" db *)
   let delete_album =
     [%rapper
       execute

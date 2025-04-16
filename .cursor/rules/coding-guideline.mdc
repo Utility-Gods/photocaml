@@ -1,6 +1,6 @@
 ---
-description:
-globs:
+description: 
+globs: 
 alwaysApply: true
 ---
 
@@ -8,3 +8,9 @@ alwaysApply: true
 
 - You can @ files here
 - You can use markdown but dont have to
+ 
+ I am very new to OCAML, this is my first OCAML project ever. I want you to
+ - Comment Every line, every call, every function chain
+ - Put links in comments for furhter understanding
+ - put examples in comments
+ - be very expressive

@@ -1,4 +1,4 @@
-let render ~(album : Database.Db.album) =
+let render ~(album : Database.Db.album) ~(photos : Database.Db.photo list) =
 <div>
   <div class="mb-6">
     <a href="/album" class="text-red-600 hover:text-red-700 flex items-center">
@@ -22,20 +22,26 @@ let render ~(album : Database.Db.album) =
   </div>
 
   <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4" id="photo-grid">
-    <!-- This would display photos when implemented -->
-    <div class="col-span-full text-center py-12 text-gray-500">
-      <p>No photos yet</p>
-      <p class="mt-2">
-        <a href="/album/<%s album.Database.Db.id %>/upload" class="text-red-600 hover:underline">
-          Upload your first photo
-        </a>
-      </p>
-    </div>
-    
-    <!-- In a future version, photos would render as:
-    <div class="aspect-square bg-gray-100 rounded-lg overflow-hidden">
-      <img src="PHOTO_URL" alt="Photo Description" class="w-full h-full object-cover">
-    </div>
-    -->
+    <% if List.length photos=0 then ( %>
+      <!-- Message when there are no photos -->
+      <div class="col-span-full text-center py-12 text-gray-500">
+        <p>No photos yet</p>
+        <p class="mt-2">
+          <a href="/album/<%s album.Database.Db.id %>/upload" class="text-red-600 hover:underline">
+            Upload your first photo
+          </a>
+        </p>
+      </div>
+    <% ) else ( %>
+      <!-- Use List.map to generate HTML strings for each photo -->
+      <%s! String.concat "" (photos |> List.map (fun (photo : Database.Db.photo) ->
+        Printf.sprintf
+        {|<div class="aspect-square bg-gray-100 rounded-lg overflow-hidden">
+          <img src="%s" alt="%s" class="w-full h-full object-cover">
+        </div>|}
+        photo.Database.Db.bucket_path
+        photo.Database.Db.filename
+        )) %>
+        <% ); %>
   </div>
 </div>

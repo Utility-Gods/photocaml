@@ -262,14 +262,24 @@ let () =
 
     Dream.get "/album" (fun req ->
       try%lwt
-        let%lwt albums = Dream.sql req (fun db ->
+        let%lwt albums_with_photos = Dream.sql req (fun db ->
           let%lwt result = Database.Db.get_all_albums db in
           match result with
-          | Ok albums -> Lwt.return albums
+          | Ok albums -> 
+              (* For each album, get its photos *)
+              let%lwt albums_with_photos = Lwt_list.map_s (fun (album : Database.Db.album) ->
+                let%lwt photos_result = Database.Db.get_photos_by_album ~album_id:album.Database.Db.id db in
+                match photos_result with
+                | Ok photos -> Lwt.return (album, photos)
+                | Error e -> 
+                    Dream.log "Failed to get photos for album %s: %s" album.Database.Db.id (Caqti_error.show e);
+                    Lwt.return (album, []) (* Return empty list if photos query fails *)
+              ) albums in
+              Lwt.return albums_with_photos
           | Error e -> Lwt.fail (Failure (Caqti_error.show e))
         ) in
-        debug "Found %d albums" (List.length albums);
-        let content = Template.Album.render ~albums ~request:req in
+        debug "Found %d albums" (List.length albums_with_photos);
+        let content = Template.Album.render ~albums:albums_with_photos ~request:req in
         Template.Layout.render
           ~title:"Albums"
           ~content
@@ -292,7 +302,7 @@ let () =
     Dream.get "/album/:id" (fun req ->
       let album_id = Dream.param req "id" in
       (try%lwt
-        (* Get album details *) 
+        (* Get album details *)
         let%lwt album = Dream.sql req (fun db ->
             let%lwt result = Database.Db.get_album ~id:album_id db in
             match result with
@@ -300,9 +310,17 @@ let () =
             | Error e -> Lwt.fail (Failure (Caqti_error.show e))
           )
         in
-        let content = Template.Album_detail.render ~album in
+        (* Get photos for the album *)
+        let%lwt photos = Dream.sql req (fun db ->
+            let%lwt result = Database.Db.get_photos_by_album ~album_id:album_id db in
+            match result with
+            | Ok photos -> Lwt.return photos
+            | Error e -> Lwt.fail (Failure (Caqti_error.show e)) (* Consider returning [] or logging *)
+          )
+        in
+        let content = Template.Album_detail.render ~album ~photos in (* Pass photos here *)
         Template.Layout.render
-          ~title:"Album Details"
+          ~title:("Album: " ^ album.name) (* Update title *)
           ~content
           |> Dream.html
       with Failure msg ->
