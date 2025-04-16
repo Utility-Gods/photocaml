@@ -1,6 +1,15 @@
 (* Import the S3 module which handles cloud storage operations *)
 module S3 = S3
 
+(* Re-export Db module functions *)
+let init = Db.init
+let cleanup = Db.cleanup
+let with_connection = Db.with_connection
+
+let get_connection = Db.get_connection
+
+let get_db_url = Db.get_db_url
+
 (* Define a Database module to encapsulate all database operations *)
 module Db = struct
   (* Define the album record type
@@ -14,7 +23,8 @@ module Db = struct
        slug = "vacation-2024";
        created_at = current_time;
      } *)
-  type album = {
+
+   type album = {
     id : string;              (* Unique identifier for the album *)
     name : string;            (* Album name *)
     description : string option; (* Optional description. None if not provided *)
@@ -198,4 +208,70 @@ module Db = struct
         {sql|
           DELETE FROM albums WHERE id = %string{id}
         |sql}]
+end
+
+(* CLI-specific functions that handle error types appropriately *)
+module Cli = struct
+  open Lwt.Syntax
+
+  (* Log functions for CLI operations *)
+  let log_error msg = Printf.eprintf "[ERROR] %s\n%!" msg
+  let log_info msg = Printf.printf "[INFO] %s\n%!" msg
+
+  (* Upload photos to an album, handling both S3 and database errors *)
+  let upload_photos ~db ~album_id ~files =
+    (* Track successful uploads *)
+    let successes = ref 0 in
+    
+    (* Process each file *)
+    let process_file file =
+      (* First upload to S3 *)
+      let* s3_result = S3.upload_file ~album_id ~file_path:file ~filename:(Filename.basename file) in
+      match s3_result with
+      | Error e -> 
+          log_error (Printf.sprintf "S3 upload failed for %s: %s" 
+            file (S3.string_of_upload_error e));
+          Lwt.return_ok ()  (* Continue with next file *)
+      | Ok url ->
+          (* Save to database *)
+          let id = Db.generate_id () in
+          let* db_result = Db.add_photo ~id ~album_id
+            ~filename:(Filename.basename file)
+            ~bucket_path:url
+            ~width:None
+            ~height:None
+            ~size_bytes:None
+            db
+          in
+          match db_result with
+          | Ok () -> 
+              incr successes;
+              log_info (Printf.sprintf "Successfully uploaded %s" file);
+              Lwt.return_ok ()
+          | Error e -> 
+              log_error (Printf.sprintf "Database error for %s: %s" 
+                file (Caqti_error.show e));
+              Lwt.return_ok () (* Continue with next file *)
+    in
+    
+    (* Process all files *)
+    let* results = Lwt_list.map_s process_file files in
+    if List.exists Result.is_error results then
+      (* Use Caqti_error.request_failed to construct the error *)
+      let msg = Caqti_error.Msg "Some files failed to upload" in
+      Lwt.return_error (Caqti_error.request_failed 
+        ~uri:(Uri.of_string "") 
+        ~query:"upload_photos" 
+        msg)
+    else
+      Lwt.return_ok !successes
+
+  (* List all albums with proper error handling for CLI *)
+  let list_albums db =
+    let* result = Db.get_all_albums db in
+    match result with
+    | Ok albums -> Lwt.return_ok albums
+    | Error e -> 
+        log_error (Printf.sprintf "Failed to list albums: %s" (Caqti_error.show e));
+        Lwt.return_error e
 end

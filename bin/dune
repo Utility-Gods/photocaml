@@ -1,54 +1,55 @@
+;; Web application
 (executable
-(public_name photocaml)
-(name main)
-(libraries
- dream
- lwt
- lwt.unix
- caqti
- caqti-lwt
- caqti-lwt.unix
- caqti-driver-postgresql
- dotenv
- uri
- uuidm
- yojson
- photocaml.database)
-(preprocess (pps lwt_ppx))
-(flags (:standard -w -27-33-32-34-37)) ; Disable warnings for unused variables, opens, values, types, constructors
-)
+ (name main)
+ (public_name photocaml)
+ (libraries
+  dream
+  lwt
+  lwt.unix
+  caqti
+  caqti-lwt
+  caqti-lwt.unix
+  caqti-driver-postgresql
+  dotenv
+  uri
+  uuidm
+  yojson
+  photocaml.database)
+ (preprocess (pps lwt_ppx))
+ (flags (:standard -w -27-33-32-34-37))) ; Disable warnings for unused variables, opens, values, types, constructors
+
+;; Web templates
+(rule
+ (targets layout.ml)
+ (deps layout.eml.html)
+ (action (run dream_eml %{deps} --workspace %{workspace_root})))
 
 (rule
-(targets layout.ml)
-(deps layout.eml.html)
-(action (run dream_eml %{deps} --workspace %{workspace_root})))
+ (targets home.ml)
+ (deps home.eml.html)
+ (action (run dream_eml %{deps} --workspace %{workspace_root})))
 
 (rule
-(targets home.ml)
-(deps home.eml.html)
-(action (run dream_eml %{deps} --workspace %{workspace_root})))
+ (targets album.ml)
+ (deps album.eml.html)
+ (action (run dream_eml %{deps} --workspace %{workspace_root})))
 
 (rule
-(targets album.ml)
-(deps album.eml.html)
-(action (run dream_eml %{deps} --workspace %{workspace_root})))
+ (targets album_detail.ml)
+ (deps album_detail.eml.html)
+ (action (run dream_eml %{deps} --workspace %{workspace_root})))
 
 (rule
-(targets album_detail.ml)
-(deps album_detail.eml.html)
-(action (run dream_eml %{deps} --workspace %{workspace_root})))
+ (targets template.ml)
+ (deps template.eml.html)
+ (action (run dream_eml %{deps} --workspace %{workspace_root})))
 
 (rule
-(targets template.ml)
-(deps template.eml.html)
-(action (run dream_eml %{deps} --workspace %{workspace_root})))
+ (targets new_album.ml)
+ (deps new_album.eml.html)
+ (action (run dream_eml %{deps} --workspace %{workspace_root})))
 
 (rule
-(targets new_album.ml)
-(deps new_album.eml.html)
-(action (run dream_eml %{deps} --workspace %{workspace_root})))
-
-(rule
-(targets upload.ml)
-(deps upload.eml.html)
-(action (run dream_eml %{deps} --workspace %{workspace_root})))
+ (targets upload.ml)
+ (deps upload.eml.html)
+ (action (run dream_eml %{deps} --workspace %{workspace_root})))

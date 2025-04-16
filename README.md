@@ -146,6 +146,37 @@ dune exec ./bin/main.exe
 
 Visit: [http://localhost:4000](http://localhost:4000)
 
+## 📷 Using the CLI
+
+### Build the CLI
+
+```bash
+dune build bin/cli/photocaml_cli.exe
+```
+
+The CLI executable will be available at `_build/default/bin/cli/photocaml_cli.exe`
+
+### List Albums
+
+To list all albums in the database:
+
+```bash
+_build/default/bin/cli/photocaml_cli.exe list
+```
+
+### Upload Photos
+
+To upload photos to an album:
+
+```bash
+_build/default/bin/cli/photocaml_cli.exe upload <album_id> <directory_with_photos>
+```
+
+Example:
+```bash
+_build/default/bin/cli/photocaml_cli.exe upload a95a7319-049e-d8e8-a2e6-bc9fd4888d81 /path/to/photos
+```
+
 ## 🛠 Build
 
 ```bash
