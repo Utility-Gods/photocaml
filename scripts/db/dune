@@ -1,0 +1,15 @@
+(executable
+ (name init_pg)
+ (public_name init_pg)
+ (libraries
+  lwt
+  lwt.unix
+  caqti
+  caqti-lwt
+  caqti-lwt.unix
+  caqti-driver-postgresql
+  cohttp-lwt-unix
+  uri
+  dotenv)
+ (preprocess
+  (pps lwt_ppx))) 

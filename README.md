@@ -17,8 +17,35 @@ opam install dune dream
 This project requires specific dependencies to run properly. The core dependencies include:
 
 ```bash
-opam install dune dream caqti caqti-lwt caqti-driver-sqlite3 lwt lwt_ppx uuidm ptime
+opam install dune dream caqti caqti-lwt caqti-driver-postgresql lwt lwt_ppx uuidm ptime
 ```
+
+### Database Setup
+
+The application uses PostgreSQL as its database. The schema is managed through SQL files in the `lib/database` directory.
+
+#### Local Development Setup
+
+For local development, you can initialize the database using:
+
+```bash
+# Set your database URL in .env file:
+POSTGRES_URL=postgres://user:pass@localhost:5432/dbname
+
+# Initialize the database schema
+dune exec scripts/db/init_pg.exe
+```
+
+#### Production Setup
+
+In production, database initialization and migrations are handled through Docker container initialization. The schema will be automatically applied when the database container starts up.
+
+The schema file is located at:
+```
+lib/database/schema.pg.sql
+```
+
+Note: The schema requires the `uuid-ossp` PostgreSQL extension, which will be automatically enabled during initialization.
 
 ## 🧪 Environment Setup and Troubleshooting
 
@@ -39,7 +66,7 @@ This project requires specific OCaml dependencies managed through OPAM switches.
 
 3. Install all required dependencies:
    ```bash
-   opam install --yes dune dream caqti caqti-lwt caqti-driver-sqlite3 lwt lwt_ppx ppx_rapper ppx_rapper_lwt uuidm ptime
+   opam install --yes dune dream caqti caqti-lwt caqti-driver-postgresql lwt lwt_ppx ppx_rapper ppx_rapper_lwt uuidm ptime
    ```
 
 ### Handling Build Locks
@@ -62,7 +89,7 @@ The project requires the following dependencies to be installed:
    - `lwt` and `lwt_ppx`: Asynchronous programming
 
 2. **Database Libraries**:
-   - `caqti`, `caqti-lwt`, and `caqti-driver-sqlite3`: Database connectivity
+   - `caqti`, `caqti-lwt`, and `caqti-driver-postgresql`: PostgreSQL database connectivity
    - `ppx_rapper` and `ppx_rapper_lwt`: SQL query type safety with PPX
 
 3. **Utilities**:
@@ -83,7 +110,7 @@ If you encounter issues with PPX extensions specifically, you can try alternate 
 2. **Configure dune files properly**:
    ```
    # Make sure libraries includes ppx_rapper_lwt
-   (libraries caqti caqti-lwt caqti-driver-sqlite3 ppx_rapper_lwt ...)
+   (libraries caqti caqti-lwt caqti-driver-postgresql ppx_rapper_lwt ...)
    
    # And preprocess includes both ppx_rapper and lwt_ppx
    (preprocess (pps ppx_rapper lwt_ppx))
@@ -145,10 +172,13 @@ cp _build/default/bin/main.exe ./photo_app
 │   └── *.eml.html      # dream templates
 ├── lib/
 │   ├── database/       # database interaction
-│   │   ├── database.ml # database queries
-│   │   ├── s3.ml       # S3 integration
-│   │   └── schema.sql  # database schema
-│   └── dune            # library configuration
+│   │   ├── db.ml      # connection pooling
+│   │   ├── schema.pg.sql  # PostgreSQL schema
+│   │   └── dune       # database lib config
+├── scripts/
+│   └── db/
+│       ├── init_pg.ml  # database initialization script
+│       └── dune        # script config
 ├── dune-project        # project metadata
 ├── photocaml.opam      # package dependencies
 └── README.md           # this file

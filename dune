@@ -1,3 +1,0 @@
-(executable
- (name init_db)
- (libraries sqlite3))

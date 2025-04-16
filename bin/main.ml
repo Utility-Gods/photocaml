@@ -3,6 +3,15 @@ let info fmt = Printf.ksprintf (fun s -> Printf.printf "[INFO] %s\n%!" s) fmt
 let warn fmt = Printf.ksprintf (fun s -> Printf.printf "[WARN] %s\n%!" s) fmt
 let error fmt = Printf.ksprintf (fun s -> Printf.printf "[ERROR] %s\n%!" s) fmt
 
+(* Get database URL from environment *)
+let get_db_url () =
+  match Sys.getenv_opt "POSTGRES_URL" with
+  | Some url -> url
+  | None -> 
+      Printf.eprintf "Error: POSTGRES_URL environment variable not set\n";
+      Printf.eprintf "Format: postgres://user:pass@host:5432/dbname\n";
+      exit 1
+
 module Handlers = struct
   (* Replace Str with standard library String functions *)
   let generate_slug name =
@@ -241,6 +250,10 @@ let () =
   (* Use simple Printf for logging *)
   Random.self_init(); (* Initialize random seed for ID generation *)
   
+  (* Load environment variables *)
+  let () = Dotenv.export ~debug:true () in
+  let db_url = get_db_url () in
+  
   Dream.run ~interface:"0.0.0.0" ~port:4000 
   @@ Dream.logger
   @@ Dream.memory_sessions
@@ -250,7 +263,7 @@ let () =
       let target = Dream.target req in
       Printf.printf "[REQUEST] %s %s\n%!" meth target;
       handler req)
-  @@ Dream.sql_pool "sqlite3:db.sqlite"
+  @@ Dream.sql_pool db_url
   @@ Dream.router [
     Dream.get "/" (fun _ ->
       let content = Template.Home.render () in

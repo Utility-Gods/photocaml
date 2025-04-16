@@ -1,7 +1,19 @@
 (executable
 (public_name photocaml)
 (name main)
-(libraries dream uuidm lwt photocaml.database)
+(libraries
+ dream
+ lwt
+ lwt.unix
+ caqti
+ caqti-lwt
+ caqti-lwt.unix
+ caqti-driver-postgresql
+ dotenv
+ uri
+ uuidm
+ yojson
+ photocaml.database)
 (preprocess (pps lwt_ppx))
 (flags (:standard -w -27-33-32-34-37)) ; Disable warnings for unused variables, opens, values, types, constructors
 )

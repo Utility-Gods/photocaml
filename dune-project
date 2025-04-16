@@ -5,40 +5,38 @@
 (generate_opam_files true)
 
 (source
- (github utility-gods/photocaml))
+ (github username/photocaml))
 
-(authors "Siddharth Jain <me@siddharthjain.in>")
+(authors "Your Name")
 
-(maintainers "Siddharth Jain <me@siddharthjain.in>")
+(maintainers "Your Name")
 
 (license LICENSE)
 
-(documentation https://photocaml.utilitygods.com)
+(documentation https://url/to/documentation)
 
 (package
  (name photocaml)
- (synopsis "A photosharing app in OCaml with Dream")
- (description "Upload photos to a bucket, segment them, and share them with a link.")
- (depends 
-  ocaml
+ (synopsis "Photo album management tool")
+ (description "A CLI tool for managing photo albums with PostgreSQL and S3 storage")
+ (depends
+  (ocaml (>= 4.14.0))
   dune
-  dream
-  caqti
-  caqti-lwt
-  caqti-driver-sqlite3
   lwt
   lwt_ppx
-  ppx_rapper
-  uuidm
-  ptime
+  caqti
+  caqti-lwt
+  caqti-driver-postgresql
   dotenv
-  cohttp
-  cohttp-async
-  cohttp-lwt-unix
   uri
-  nocrypto
-  digestif)
+  uuidm
+  ppx_deriving
+  ppx_deriving_yojson
+  yojson
+  digestif
+  (alcotest :with-test)
+  (alcotest-lwt :with-test))
  (tags
-  ("photosharing" "photos" "dream" "ocaml" "utility-gods")))
+  (photos cli postgresql s3)))
 
 ; See the complete stanza docs at https://dune.readthedocs.io/en/stable/reference/dune-project/index.html
