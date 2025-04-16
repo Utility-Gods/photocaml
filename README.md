@@ -146,37 +146,6 @@ dune exec ./bin/main.exe
 
 Visit: [http://localhost:4000](http://localhost:4000)
 
-## 📷 Using the CLI
-
-### Build the CLI
-
-```bash
-dune build bin/cli/photocaml_cli.exe
-```
-
-The CLI executable will be available at `_build/default/bin/cli/photocaml_cli.exe`
-
-### List Albums
-
-To list all albums in the database:
-
-```bash
-_build/default/bin/cli/photocaml_cli.exe list
-```
-
-### Upload Photos
-
-To upload photos to an album:
-
-```bash
-_build/default/bin/cli/photocaml_cli.exe upload <album_id> <directory_with_photos>
-```
-
-Example:
-```bash
-_build/default/bin/cli/photocaml_cli.exe upload a95a7319-049e-d8e8-a2e6-bc9fd4888d81 /path/to/photos
-```
-
 ## 🛠 Build
 
 ```bash
@@ -292,3 +261,58 @@ match%lwt Dream.form req with
    - Check schema matches what queries expect
    - Verify database connection string in .env file
    - Run database initialization script if needed
+
+## 📷 Using the CLI
+
+### Build the CLI
+
+```bash
+dune build bin/cli/photocaml_cli.exe
+```
+
+The CLI executable will be available at `_build/default/bin/cli/photocaml_cli.exe`
+
+### Running the CLI
+
+You can use the CLI in three different ways:
+
+1. **Interactive Menu Mode** (Recommended for beginners):
+   ```bash
+   _build/default/bin/cli/photocaml_cli.exe menu
+   ```
+   This will present you with an easy-to-use menu with the following options:
+   - List all albums
+   - Upload photos to album
+   - Exit
+
+2. **Direct Commands**:
+
+   a. List all albums:
+   ```bash
+   _build/default/bin/cli/photocaml_cli.exe list
+   ```
+
+   b. Upload photos to an album:
+   ```bash
+   _build/default/bin/cli/photocaml_cli.exe upload <album_id> <directory_with_photos>
+   ```
+   Example:
+   ```bash
+   _build/default/bin/cli/photocaml_cli.exe upload a95a7319-049e-d8e8-a2e6-bc9fd4888d81 /path/to/photos
+   ```
+
+### CLI Help
+
+To see all available commands and options:
+```bash
+_build/default/bin/cli/photocaml_cli.exe --help
+```
+
+For help with a specific command:
+```bash
+_build/default/bin/cli/photocaml_cli.exe <command> --help
+```
+Example:
+```bash
+_build/default/bin/cli/photocaml_cli.exe upload --help
+```
