@@ -24,6 +24,9 @@
   dune
   lwt
   lwt_ppx
+  cmdliner
+  fmt
+  logs
   caqti
   caqti-lwt
   caqti-driver-postgresql

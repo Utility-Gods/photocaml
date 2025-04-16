@@ -1,0 +1,11 @@
+(executable
+ (name main)
+ (public_name photocaml-cli)
+ (package photocaml)
+ (libraries
+  cmdliner
+  lwt
+  lwt.unix
+  photocaml)
+ (preprocess
+  (pps ppx_deriving.show ppx_deriving.eq ppx_deriving.ord lwt_ppx))) 
