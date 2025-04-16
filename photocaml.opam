@@ -30,8 +30,6 @@ depends: [
   "nocrypto"
   "digestif"
   "odoc" {with-doc}
-  "alcotest" {with-test}
-  "alcotest-lwt" {with-test}
 ]
 build: [
   ["dune" "subst"] {dev}

@@ -1,4 +1,4 @@
-let render ~albums ~request =
+let render ~(albums : (Database.Db.album * Database.Db.photo list) list) ~request =
 <div>
   <div class="flex justify-between items-center mb-6">
     <h1 class="text-3xl font-bold text-red-600">Your Albums</h1>
@@ -14,7 +14,7 @@ let render ~albums ~request =
     <div id="notification" class="fixed top-4 right-4"></div>
 
   <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-    <%s! String.concat "" (List.map (fun (album : Database.Db.album) ->
+    <%s! String.concat "" (List.map (fun ((album : Database.Db.album), (photos : Database.Db.photo list)) ->
       Printf.sprintf {|
       <div class="bg-white rounded-lg shadow-md overflow-hidden" id="album-%s">
         <div class="p-4">
@@ -22,6 +22,7 @@ let render ~albums ~request =
             <a href="/album/%s">
               <h2 class="text-xl font-semibold">%s</h2>
               %s
+              <p class="text-gray-500 mt-1">%d photos</p>
             </a>
             <button class="text-red-600 hover:text-red-800 transition" hx-delete="/album/%s"
               hx-confirm="Are you sure you want to delete this album?" hx-target="#album-%s" hx-swap="outerHTML" hx-trigger="click">
@@ -36,13 +37,14 @@ let render ~albums ~request =
         </div>
         |}
         album.Database.Db.id
-      album.Database.Db.id
-      album.Database.Db.name
-      (match album.Database.Db.description with
-      | Some desc -> Printf.sprintf {|<p class="text-gray-600 mt-2">%s</p>|} desc
-      | None -> "")
-      album.Database.Db.id
-      album.Database.Db.id
+        album.Database.Db.id
+        album.Database.Db.name
+        (match album.Database.Db.description with
+        | Some desc -> Printf.sprintf {|<p class="text-gray-600 mt-2">%s</p>|} desc
+        | None -> "")
+        (List.length photos)
+        album.Database.Db.id
+        album.Database.Db.id
     ) albums) %>
   </div>
 </div>
