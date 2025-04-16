@@ -1,4 +1,0 @@
-(executable
- (name simple)
- (libraries database lwt lwt.unix)
- (preprocess (pps lwt_ppx))) 
