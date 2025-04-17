@@ -4,13 +4,19 @@
     COPY . .
    
     RUN sudo chown -R opam:opam /app
-    ENV OPAMSOLVERTIMEOUT=1800
+    ENV OPAMSOLVERTIMEOUT=3600
+    # Install system deps and clean up apt cache
     RUN sudo apt-get update && sudo apt-get install -y \
-    libpq-dev pkg-config m4 libev-dev zlib1g-dev libssl-dev build-essential \
-    libgmp-dev libpcre3-dev libffi-dev \
-    && opam install . --deps-only -y \
-    && eval $(opam env) \
-    && dune build bin/main.exe
+        libpq-dev pkg-config m4 libev-dev zlib1g-dev libssl-dev build-essential \
+        libgmp-dev libpcre3-dev libffi-dev \
+        && sudo rm -rf /var/lib/apt/lists/*
+
+    # Use a fresh opam switch for reproducibility
+    RUN opam switch create . ocaml-base-compiler.4.14.0 || true
+    # Update opam repo and install deps with default solver (builtin-0install not available)
+    RUN opam update && opam install . --deps-only -y
+    # Build project
+    RUN eval $(opam env) && dune build bin/main.exe
     
     # ---- Run Stage ----
     FROM debian:bullseye-slim

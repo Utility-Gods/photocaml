@@ -24,9 +24,6 @@ depends: [
   "ppx_deriving"
   "ppx_deriving_yojson"
   "yojson"
-  "cohttp-lwt-unix"
-  "ppx_rapper"
-  "cmdliner"
   "digestif"
   "alcotest" {with-test}
   "alcotest-lwt" {with-test}
