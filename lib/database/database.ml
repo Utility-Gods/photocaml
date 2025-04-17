@@ -143,6 +143,24 @@ module Db = struct
         |sql}
         record_out]
 
+  (* Get paginated photos in an album *)
+  let get_photos_by_album_paginated =
+    [%rapper
+      get_many
+        {sql|
+          SELECT @string{id}, @string{album_id}, @string{filename}, @string{bucket_path}, @int?{width}, @int?{height}, @int?{size_bytes}, @ptime{uploaded_at}
+          FROM photos WHERE album_id = %string{album_id} ORDER BY uploaded_at DESC OFFSET %int{offset} LIMIT %int{limit}
+        |sql}
+        record_out]
+
+  (* Count photos in an album *)
+  let count_photos_by_album =
+    [%rapper
+      get_one
+        {sql|
+          SELECT COUNT(*) FROM photos WHERE album_id = %string{album_id}
+        |sql}]
+
   (* Create a new share for an album
      Usage: create_share ~id:"789" ~album_id:"123" ~share_token:"abc123" ~is_public:true ~expires_at:None db *)
   let create_share =
