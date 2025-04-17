@@ -1,23 +1,22 @@
 (library
  (name database)
  (public_name photocaml.database)
- (libraries 
-   caqti
-   caqti-lwt
-   caqti-lwt.unix
-   ppx_rapper_lwt
-   ptime
-   lwt
-   lwt.unix
-   dream
-   uuidm
-   yojson
-   ppx_deriving_yojson.runtime
-   dotenv
-   str
-   cohttp
-   cohttp-lwt-unix
-   uri
-   digestif)
- (preprocess 
-   (pps ppx_rapper lwt_ppx ppx_deriving.show)))
+ (libraries
+  caqti
+  caqti-lwt
+  ppx_rapper_lwt
+  ptime
+  lwt
+  lwt.unix
+  dream
+  uuidm
+  yojson
+  ppx_deriving_yojson.runtime
+  dotenv
+  str
+  cohttp
+  cohttp-lwt-unix
+  uri
+  digestif)
+ (preprocess
+  (pps ppx_rapper lwt_ppx ppx_deriving.show)))
