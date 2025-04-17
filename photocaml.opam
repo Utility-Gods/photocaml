@@ -20,6 +20,8 @@ depends: [
   "caqti-driver-postgresql"
   "dotenv"
   "uri"
+  "dream"
+  "ppx_rapper"
   "uuidm"
   "ppx_deriving"
   "ppx_deriving_yojson"

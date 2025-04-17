@@ -2,7 +2,6 @@
 
 (name photocaml)
 
-(generate_opam_files true)
 
 (source
  (github username/photocaml))
@@ -14,6 +13,8 @@
 (license LICENSE)
 
 (documentation https://url/to/documentation)
+
+(generate_opam_files false)
 
 (package
  (name photocaml)
@@ -29,6 +30,8 @@
   caqti-driver-postgresql
   dotenv
   uri
+  dream
+  ppx_rapper
   uuidm
   ppx_deriving
   ppx_deriving_yojson
