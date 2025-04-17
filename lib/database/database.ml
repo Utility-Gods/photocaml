@@ -225,33 +225,83 @@ module Cli = struct
     
     (* Process each file *)
     let process_file file =
-      (* First upload to S3 *)
-      let* s3_result = S3.upload_file ~album_id ~file_path:file ~filename:(Filename.basename file) in
+      let open Lwt.Infix in
+      let filename = Filename.basename file in
+      let ext = Filename.extension filename in
+      let name_wo_ext =
+        if String.length ext > 0 then
+          String.sub filename 0 (String.length filename - String.length ext)
+        else filename
+      in
+      let medium_file = Filename.temp_file ~temp_dir:"docs" (name_wo_ext ^ "_medium") ext in
+      let thumb_file = Filename.temp_file ~temp_dir:"docs" (name_wo_ext ^ "_thumbnail") ext in
+      
+      let run_convert src dest size =
+        let cmd = Printf.sprintf "convert '%s' -resize '%s' '%s'" src size dest in
+        Lwt_process.exec ("/bin/sh", [| "/bin/sh"; "-c"; cmd |]) >|= function
+        | Unix.WEXITED 0 -> Ok ()
+        | _ -> Error (Printf.sprintf "convert failed: %s" cmd)
+      in
+      
+      let* medium_res = run_convert file medium_file "1024x1024>" in
+      (match medium_res with
+      | Ok () -> log_info ("Generated medium image: " ^ medium_file)
+      | Error e -> log_error e);
+      let* thumb_res = run_convert file thumb_file "256x256>" in
+      (match thumb_res with
+      | Ok () -> log_info ("Generated thumbnail image: " ^ thumb_file)
+      | Error e -> log_error e);
+      
+      (* Upload original *)
+      let* s3_result = S3.upload_file ~album_id ~file_path:file ~filename in
       match s3_result with
       | Error e -> 
-          log_error (Printf.sprintf "S3 upload failed for %s: %s" 
-            file (S3.string_of_upload_error e));
-          Lwt.return_ok ()  (* Continue with next file *)
+          log_error (Printf.sprintf "S3 upload failed for %s: %s" file (S3.string_of_upload_error e));
+          Lwt.return_ok ()
       | Ok url ->
-          (* Save to database *)
           let id = Db.generate_id () in
           let* db_result = Db.add_photo ~id ~album_id
-            ~filename:(Filename.basename file)
+            ~filename
             ~bucket_path:url
             ~width:None
             ~height:None
             ~size_bytes:None
             db
           in
-          match db_result with
-          | Ok () -> 
-              incr successes;
-              log_info (Printf.sprintf "Successfully uploaded %s" file);
-              Lwt.return_ok ()
-          | Error e -> 
-              log_error (Printf.sprintf "Database error for %s: %s" 
-                file (Caqti_error.show e));
-              Lwt.return_ok () (* Continue with next file *)
+          let*_ =
+            match db_result with
+            | Ok _ ->
+                incr successes;
+                log_info (Printf.sprintf "Successfully uploaded %s" file);
+                Lwt.return_ok ()
+            | Error e ->
+                log_error (Printf.sprintf "Database error for %s: %s" file (Caqti_error.show e));
+                Lwt.return_ok ()
+          in
+      
+      (* Upload medium *)
+      let medium_filename = name_wo_ext ^ "_medium" ^ ext in
+      let* _ =
+        if Sys.file_exists medium_file then
+          S3.upload_file ~album_id ~file_path:medium_file ~filename:medium_filename >|= function
+          | Ok _ -> log_info ("Uploaded medium image: " ^ medium_filename)
+          | Error e -> log_error ("Failed to upload medium image: " ^ S3.string_of_upload_error e)
+        else Lwt.return_unit
+      in
+      (* Upload thumbnail *)
+      let thumb_filename = name_wo_ext ^ "_thumbnail" ^ ext in
+      let* _ =
+        if Sys.file_exists thumb_file then
+          S3.upload_file ~album_id ~file_path:thumb_file ~filename:thumb_filename >|= function
+          | Ok _ -> log_info ("Uploaded thumbnail image: " ^ thumb_filename)
+          | Error e -> log_error ("Failed to upload thumbnail image: " ^ S3.string_of_upload_error e)
+        else Lwt.return_unit
+      in
+      (* Clean up temp files *)
+      (try Sys.remove medium_file with _ -> ());
+      (try Sys.remove thumb_file with _ -> ());
+      Lwt.return_ok ()
+
     in
     
     (* Process all files *)
