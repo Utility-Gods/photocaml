@@ -19,6 +19,7 @@ depends: [
   "caqti"
   "caqti-lwt"
   "cohttp-lwt-unix"
+  "caqti-async"
   "caqti-driver-postgresql"
   "dotenv"
   "uri"

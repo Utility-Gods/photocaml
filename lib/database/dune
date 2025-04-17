@@ -4,6 +4,7 @@
  (libraries 
    caqti
    caqti-lwt
+   caqti-lwt.unix
    ppx_rapper_lwt
    ptime
    lwt
