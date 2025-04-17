@@ -89,7 +89,7 @@ Types.photo_variant list) : string =
       return match ? match[1] : null;
     }
     const shareToken = getShareToken();
-    const PAGE_SIZE = 5;
+    const PAGE_SIZE = 20;
     let loadedPhotos = [];
     let totalPhotos = 0;
     let loading = false;
@@ -98,7 +98,9 @@ Types.photo_variant list) : string =
     // Render images into the grid
     function renderPhotos() {
       const grid = document.getElementById('photo-grid');
-      grid.innerHTML = '';
+      if (offset === PAGE_SIZE) {
+  grid.innerHTML = '';
+}
       loadedPhotos.forEach((photo, idx) => {
         const div = document.createElement('div');
         div.className = "aspect-square bg-gray-100 rounded-lg overflow-hidden cursor-pointer group";
