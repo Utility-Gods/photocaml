@@ -1,0 +1,14 @@
+version: '3'
+services:
+  app:
+    build: .
+    container_name: photocaml_app
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      - PORT=4000
+      # Add any other environment variables your app needs here
+    volumes:
+      - ./data:/data  # If your app needs persistent data
+      - ./letsencrypt:/letsencrypt  # Optional, remove if not needed

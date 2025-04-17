@@ -3,13 +3,13 @@ opam-version: "2.0"
 synopsis: "Photo album management tool"
 description:
   "A CLI tool for managing photo albums with PostgreSQL and S3 storage"
-maintainer: ["Siddharth"]
-authors: ["Siddharth"]
+maintainer: ["Your Name"]
+authors: ["Your Name"]
 license: "LICENSE"
 tags: ["photos" "cli" "postgresql" "s3"]
-homepage: "https://github.com/utility-gods/photocaml"
+homepage: "https://github.com/username/photocaml"
 doc: "https://url/to/documentation"
-bug-reports: "https://github.com/utility-gods/photocaml/issues"
+bug-reports: "https://github.com/username/photocaml/issues"
 depends: [
   "ocaml" {>= "4.14.0"}
   "dune" {>= "3.14"}
@@ -20,19 +20,14 @@ depends: [
   "caqti-driver-postgresql"
   "dotenv"
   "uri"
-  "dream"
   "uuidm"
   "ppx_deriving"
   "ppx_deriving_yojson"
   "yojson"
-  "digestif"
-  "cohttp"
   "cohttp-lwt-unix"
-  "cmdliner"
-  "ptime"
   "ppx_rapper"
-  "ppx_rapper_lwt"
-  "ppx_deriving"
+  "cmdliner"
+  "digestif"
   "alcotest" {with-test}
   "alcotest-lwt" {with-test}
   "odoc" {with-doc}
@@ -51,4 +46,4 @@ build: [
     "@doc" {with-doc}
   ]
 ]
-dev-repo: "git+https://github.com/utility-gods/photocaml.git"
+dev-repo: "git+https://github.com/username/photocaml.git"
