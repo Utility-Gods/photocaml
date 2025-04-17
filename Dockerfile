@@ -23,7 +23,6 @@
     WORKDIR /app
     COPY --from=build /app/_build/default/bin/main.exe /app/main.exe
     COPY --from=build /app/_build/default/scripts/db/init_pg.exe /app/init_pg.exe
-    COPY --from=build /app/.env /app/.env
     COPY --from=build /app/lib /app/lib
     COPY --from=build /app/scripts /app/scripts
     
