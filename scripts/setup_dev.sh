@@ -9,11 +9,11 @@ if [ ! -f .env ]; then
     cat > .env << EOL
 # Database Configuration
 POSTGRES_URL=postgres://postgres:postgres@localhost:5432/photocaml
-PGUSER=postgres
-PGPASSWORD=postgres
-PGHOST=localhost
-PGPORT=5432
-PGDATABASE=photocaml
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_DB=photocaml
 
 # Storage Configuration
 B2_ACCESS_KEY=your_access_key
@@ -45,10 +45,10 @@ if ! psql -c '\q' 2>/dev/null; then
 fi
 
 # Check if database exists and create if needed
-if psql -lqt | cut -d \| -f 1 | grep -qw "$PGDATABASE"; then
-    echo "Database '$PGDATABASE' already exists, skipping creation"
+if psql -lqt | cut -d \| -f 1 | grep -qw "$POSTGRES_DB"; then
+    echo "Database '$POSTGRES_DB' already exists, skipping creation"
 else
-    echo "Creating database '$PGDATABASE'..."
+    echo "Creating database '$POSTGRES_DB'..."
     createdb
 fi
 

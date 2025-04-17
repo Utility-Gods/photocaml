@@ -8,7 +8,6 @@
    ptime
    lwt
    lwt.unix
-   aws-s3
    dream
    uuidm
    yojson

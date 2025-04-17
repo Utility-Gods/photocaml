@@ -153,7 +153,7 @@ dune build
 ```
 
 Binary will be in `_build/default/bin/main.exe`
-
+/media/d2du/UG_DRIVE/wedding/afterparty
 To copy it out:
 
 ```bash

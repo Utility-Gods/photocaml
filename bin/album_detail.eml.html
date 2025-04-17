@@ -5,7 +5,7 @@ let render ~(album : Database.Db.album) ~(photos : Database.Db.photo list) =
   let key = Filename.basename bucket_path in
   match Database.S3.get_signed_url ~key ~expires_in:3600 with
   | Ok url -> url
-  | Error _ -> bucket_path (* Fallback to direct URL if signing fails *)
+  | Error _ -> "" (* Fallback to empty string if signing fails *)
   in
 
 <div>

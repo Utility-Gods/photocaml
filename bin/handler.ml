@@ -296,21 +296,15 @@ let share_photos_api_handler req =
       Dream.html ~status:`Bad_Request "Album name is required"
     ) else (
       let description = List.assoc_opt "description" params in
-      let id = Database.Db.generate_id () in
       let slug = generate_slug name in
       
-      debug "Creating album: name=%s, description=%s, id=%s, slug=%s" 
-        name 
-        (match description with Some d -> d | None -> "None") 
-        id 
-        slug;
-      
+     
       try%lwt
         (* Dream.sql expects callback returning 'a Lwt.t, raising exception on error *) 
         let%lwt () = Dream.sql req (fun db ->
           debug "Creating album in database: %s" name;
           Dream.log "Creating album: %s" name;
-          let%lwt result = Database.Db.create_album ~id ~name ~description ~cover_image:None ~slug db in
+          let%lwt result = Database.Db.create_album ~name ~description ~cover_image:None ~slug db in
           match result with
           | Ok () -> 
               debug "Album created successfully";
@@ -382,7 +376,6 @@ let share_photos_api_handler req =
             let temp_path = Filename.concat temp_dir safe_filename in
             
             (* Generate unique ID for the database *)
-            let id = Database.Db.generate_id () in
             
             try%lwt
               (* Write file to temporary location *)
@@ -408,7 +401,7 @@ let share_photos_api_handler req =
                   (* Save record to database *)
                   let%lwt db_result = Dream.sql req (fun db ->
                     let%lwt result = Database.Db.add_photo 
-                      ~id
+                
                       ~album_id
                       ~filename:safe_filename
                       ~bucket_path:safe_filename

@@ -164,6 +164,13 @@ let handle_upload_photos_interactive () =
 (* Interactive menu loop
    Handles user input and dispatches to appropriate handlers
    Returns: int (0 for success) *)
+let random_token n =
+  let gen () =
+    let chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789" in
+    chars.[Random.int (String.length chars)]
+  in
+  String.init n (fun _ -> gen ())
+
 let handle_generate_share_link () =
   Lwt_main.run (
     let* init_result = init_database () in
@@ -177,11 +184,10 @@ let handle_generate_share_link () =
               let msg = Caqti_error.Msg "No album selected" in
               Lwt.return_error (Caqti_error.request_failed ~uri:(Uri.of_string "") ~query:"create_share" msg)
           | Some album_id ->
-              let share_id = Database.Db.generate_id () in
-              let share_token = Database.Db.generate_id () in
+              let share_token = random_token 16 in
               let is_public = true in
               let expires_at = None in
-              let* share_result = Database.Cli.create_share ~id:share_id ~album_id ~share_token ~is_public ~expires_at db in
+              let* share_result = Database.Cli.create_share ~album_id ~share_token ~is_public ~expires_at db in
               match share_result with
               | Ok () ->
                   let domain = "https://yourdomain.com" in
