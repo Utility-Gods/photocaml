@@ -3,6 +3,7 @@
     WORKDIR /app
     COPY . .
     RUN sudo chown -R opam:opam /app
+    ENV OPAMSOLVERTIMEOUT=600
     RUN sudo apt-get update && sudo apt-get install -y \
     libpq-dev pkg-config m4 libev-dev zlib1g-dev libssl-dev build-essential nginx \
     libgmp-dev libpcre3-dev libffi-dev \
@@ -20,6 +21,6 @@
     COPY --from=build /app/lib /app/lib
     COPY --from=build /app/scripts /app/scripts
     
-    EXPOSE 80
+    EXPOSE 4000
     
     ENTRYPOINT ["/app/entrypoint.sh"]
