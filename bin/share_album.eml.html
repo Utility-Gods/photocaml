@@ -1,0 +1,40 @@
+let render ~(album : Database.Db.album) ~(photos : Database.Db.photo list) =
+  (* Helper function to get signed URL from bucket path *)
+  let get_signed_url bucket_path =
+    let key = Filename.basename bucket_path in
+    match Database.S3.get_signed_url ~key ~expires_in:3600 with
+    | Ok url -> url
+    | Error _ -> bucket_path
+  in
+
+<div>
+  <div class="mb-6">
+    <a href="/share" class="text-red-600 hover:text-red-700 flex items-center">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+      </svg>
+      Back to Share
+    </a>
+  </div>
+  <div class="flex justify-between items-center mb-6">
+    <h1 class="text-3xl font-bold text-red-600">
+      <%s album.Database.Db.name %>
+    </h1>
+  </div>
+  <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4" id="photo-grid">
+    <% if List.length photos=0 then ( %>
+      <div class="col-span-full text-center py-12 text-gray-500">
+        <p>No photos yet</p>
+      </div>
+    <% ) else ( %>
+      <%s! String.concat "" (photos |> List.map (fun (photo : Database.Db.photo) ->
+        Printf.sprintf
+        {|<div class="aspect-square bg-gray-100 rounded-lg overflow-hidden">
+          <img src="%s" alt="%s" class="w-full h-full object-cover">
+        </div>|}
+        (get_signed_url photo.Database.Db.bucket_path)
+        photo.Database.Db.filename
+        )) %>
+    <% ); %>
+  </div>
+</div>

@@ -11,6 +11,7 @@ let get_connection = Db.get_connection
 let get_db_url = Db.get_db_url
 
 (* Define a Database module to encapsulate all database operations *)
+
 module Db = struct
   (* Define the album record type
      Learn more about OCaml records: https://ocaml.org/docs/records
@@ -44,6 +45,7 @@ module Db = struct
     uploaded_at : Ptime.t;  (* Timestamp when photo was uploaded *)
   }
 
+
   (* Inner module for related types *)
   module T = struct
     (* Photo record type
@@ -70,14 +72,7 @@ module Db = struct
          expires_at = Some expiry_date;
          created_at = current_time;
        } *)
-    type share = {
-      id : string;            (* Unique identifier for the share *)
-      album_id : string;      (* Foreign key referencing the album *)
-      share_token : string;   (* Unique token for accessing shared album *)
-      is_public : bool;       (* Whether the share is public *)
-      expires_at : Ptime.t option; (* Optional expiration date *)
-      created_at : Ptime.t;   (* When the share was created *)
-    }
+   
 
     (* Photo paths for different sizes of the same photo
        Example:
@@ -91,8 +86,18 @@ module Db = struct
       thumbnail : string;     (* Path to thumbnail size *)
       medium : string;        (* Path to medium size *)
     }
+    
   end
 
+  type share = {
+    id : string;            (* Unique identifier for the share *)
+    album_id : string;      (* Foreign key referencing the album *)
+    share_token : string;   (* Unique token for accessing shared album *)
+    is_public : bool;       (* Whether the share is public *)
+    expires_at : Ptime.t option; (* Optional expiration date *)
+    created_at : Ptime.t;   (* When the share was created *)
+  }
+  
   (* Database operations using ppx_rapper for type-safe SQL
      Learn more: https://github.com/roddyyaga/ppx_rapper *)
 
@@ -172,6 +177,28 @@ module Db = struct
       medium = base_path ^ "_medium" ^ ext;       (* Append _medium to base path *)
     }
 
+  (* Get album_id by share token for public share route *)
+  let get_album_id_by_share_token db token =
+    let open Lwt.Syntax in
+    let query =
+      [%rapper
+        get_opt
+          {sql|
+            SELECT @string{id}, @string{album_id}, @string{share_token}, @bool{is_public}, @ptime?{expires_at}, @ptime{created_at}
+            FROM shares
+            WHERE share_token = %string{token}
+              AND is_public = TRUE
+              AND (expires_at IS NULL OR expires_at > NOW())
+          |sql}
+          record_out
+      ]
+    in
+    let* result = query ~token db in
+    match result with
+    | Ok (Some share) -> Lwt.return_some share.album_id
+    | Ok None -> Lwt.return_none
+    | Error _ -> Lwt.return_none
+
   (* Generate a unique ID for database records
      Usage: let new_id = generate_id () *)
   let generate_id () =
@@ -208,12 +235,12 @@ module Db = struct
         {sql|
           DELETE FROM albums WHERE id = %string{id}
         |sql}]
-end
+  end
 
 (* CLI-specific functions that handle error types appropriately *)
 module Cli = struct
   open Lwt.Syntax
-
+  
   (* Expose create_share for CLI use *)
   let create_share = Db.create_share
 
@@ -222,6 +249,10 @@ module Cli = struct
   let log_info msg = Printf.printf "[INFO] %s\n%!" msg
 
   (* Upload photos to an album, handling both S3 and database errors *)
+
+
+  
+
   let upload_photos ~db ~album_id ~files =
     (* Track successful uploads *)
     let successes = ref 0 in

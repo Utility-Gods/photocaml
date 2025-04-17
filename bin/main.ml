@@ -1,5 +1,8 @@
 let debug fmt = Printf.ksprintf (fun s -> Printf.printf "[DEBUG] %s\n%!" s) fmt
 let info fmt = Printf.ksprintf (fun s -> Printf.printf "[INFO] %s\n%!" s) fmt
+
+(* Import share_album template module *)
+#use "share_album.ml"
 let warn fmt = Printf.ksprintf (fun s -> Printf.printf "[WARN] %s\n%!" s) fmt
 let error fmt = Printf.ksprintf (fun s -> Printf.printf "[ERROR] %s\n%!" s) fmt
 
@@ -409,6 +412,30 @@ let () =
             Error deleting album
           </div>
         |}
+    );
+
+    (* Public share route for albums *)
+    Dream.get "/share/:token" (fun req ->
+      let token = Dream.param req "token" in
+      let open Lwt.Syntax in
+      let* share_result = Dream.sql req (fun db ->
+        let open Lwt.Syntax in
+        let* album_id_opt = Database.Db.get_album_id_by_share_token db token in
+        match album_id_opt with
+        | Some album_id ->
+            let* album_result = Database.Db.get_album ~id:album_id db in
+            let* photos_result = Database.Db.get_photos_by_album ~album_id db in
+            (match album_result, photos_result with
+            | Ok album, Ok photos -> Lwt.return_some (album, photos)
+            | _ -> Lwt.return_none)
+        | None -> Lwt.return_none
+      ) in
+      match share_result with
+      | Some (album, photos) ->
+          let content = Share_album.render ~album ~photos in
+          Dream.html content
+      | None ->
+          Dream.html ~status:`Not_Found "<h2>Invalid or expired share link</h2>"
     );
 
     (* Serve static files including uploads *)

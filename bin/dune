@@ -53,3 +53,8 @@
  (targets upload.ml)
  (deps upload.eml.html)
  (action (run dream_eml %{deps} --workspace %{workspace_root})))
+
+(rule
+ (targets share_album.ml)
+ (deps share_album.eml.html)
+ (action (run dream_eml %{deps} --workspace %{workspace_root})))
