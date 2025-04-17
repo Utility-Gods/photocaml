@@ -84,16 +84,12 @@ let get_amz_date () =
 
 (* Function to prepare paths for storage *)
 let prepare_path ~album_id filename =
-  (* Generate a unique filename *)
-  let timestamp = Int.to_string (int_of_float (Unix.time ())) in
+  (* Sanitize filename, do not prefix album_id to filename itself *)
   let safe_filename = 
     Filename.basename filename
     |> String.map (fun c -> if c = ' ' then '_' else c)
   in
-  let unique_filename = album_id ^ "_" ^ timestamp ^ "_" ^ safe_filename in
-  
-  (* Return simple filename for the root of the bucket *)
-  unique_filename
+  Filename.concat album_id safe_filename
 
 (* Gets a public URL for a key (path) *)
 let get_public_url key =

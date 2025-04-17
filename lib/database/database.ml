@@ -169,12 +169,13 @@ module Db = struct
      let photo = get_photo ...
      let paths = make_photo_paths photo *)
   let make_photo_paths (photo : photo) : T.photo_paths =
-    let base_path = photo.bucket_path in
-    let ext = Filename.extension photo.filename in (* Get file extension *)
+    let ext = Filename.extension photo.filename in
+    let album_folder = photo.album_id in
+    let base = Filename.remove_extension photo.bucket_path in
     {
-      original = base_path;
-      thumbnail = base_path ^ "_thumbnail" ^ ext; (* Append _thumbnail to base path *)
-      medium = base_path ^ "_medium" ^ ext;       (* Append _medium to base path *)
+      original = Filename.concat album_folder photo.bucket_path;
+      thumbnail = Filename.concat album_folder (base ^ "_thumbnail" ^ ext);
+      medium = Filename.concat album_folder (base ^ "_medium" ^ ext);
     }
 
   (* Get album_id by share token for public share route *)

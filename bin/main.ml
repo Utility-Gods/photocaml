@@ -1,8 +1,24 @@
+open Types
+
 let debug fmt = Printf.ksprintf (fun s -> Printf.printf "[DEBUG] %s\n%!" s) fmt
 let info fmt = Printf.ksprintf (fun s -> Printf.printf "[INFO] %s\n%!" s) fmt
 
-(* Import share_album template module *)
-#use "share_album.ml"
+(* Extract S3 key from a full S3 URL *)
+let s3_key_of_url url =
+  try
+    let uri = Uri.of_string url in
+    match Uri.path uri with
+    | "" -> url
+    | path when String.length path > 0 && path.[0] = '/' -> String.sub path 1 (String.length path - 1)
+    | path -> path
+  with _ -> url
+
+(* Utility to get _thumbnail or _medium variant of a filename or path *)
+let append_variant_to_filename filename variant =
+  let ext = Filename.extension filename in
+  let base = Filename.remove_extension filename in
+  base ^ "_" ^ variant ^ ext
+
 let warn fmt = Printf.ksprintf (fun s -> Printf.printf "[WARN] %s\n%!" s) fmt
 let error fmt = Printf.ksprintf (fun s -> Printf.printf "[ERROR] %s\n%!" s) fmt
 
@@ -144,16 +160,16 @@ module Handlers = struct
               | None -> "uploaded_file.jpg"
             in
             
-            (* Create unique filename for S3 *)
+            (* Use only the sanitized original filename for S3 and DB; do NOT add timestamp *)
             let safe_filename = 
               Filename.basename original_filename
               |> String.map (fun c -> if c = ' ' then '_' else c)
             in
-            let timestamp = Int.to_string (int_of_float (Unix.time ())) in
-            let unique_filename = timestamp ^ "_" ^ safe_filename in
+            (* S3 key: album_id/original_filename *)
+            let s3_key = Filename.concat album_id safe_filename in
             
             (* Save to temp file first *)
-            let temp_path = Filename.concat temp_dir unique_filename in
+            let temp_path = Filename.concat temp_dir safe_filename in
             
             (* Generate unique ID for the database *)
             let id = Database.Db.generate_id () in
@@ -171,7 +187,7 @@ module Handlers = struct
               
               (* Upload to S3 *)
               let%lwt s3_result = 
-                Database.S3.upload_file ~album_id ~file_path:temp_path ~filename:unique_filename
+                Database.S3.upload_file ~album_id ~file_path:temp_path ~filename:s3_key
               in
               
               match s3_result with
@@ -185,7 +201,7 @@ module Handlers = struct
                       ~id
                       ~album_id
                       ~filename:safe_filename
-                      ~bucket_path:url
+                      ~bucket_path:safe_filename
                       ~width:None
                       ~height:None
                       ~size_bytes
@@ -432,8 +448,38 @@ let () =
       ) in
       match share_result with
       | Some (album, photos) ->
-          let content = Share_album.render ~album ~photos in
-          Dream.html content
+          let photo_variants = List.map (fun (photo : Database.Db.photo) ->
+            let album_id = photo.Database.Db.album_id in
+            let filename = photo.Database.Db.filename in
+            let original_key = Filename.concat album_id filename in
+            let medium_key = Filename.concat album_id (append_variant_to_filename filename "medium") in
+            let thumbnail_key = Filename.concat album_id (append_variant_to_filename filename "thumbnail") in
+            let placeholder = "/static/img/placeholder.jpg" in
+            let build_url key =
+              match Database.S3.get_signed_url ~key ~expires_in:3600 with
+              | Ok url -> url
+              | Error _ -> placeholder
+            in
+            {
+              thumbnail_url = build_url thumbnail_key;
+              medium_url = build_url medium_key;
+              original_url = build_url original_key;
+              filename = photo.Database.Db.filename;
+            }
+          ) photos in
+          (* Print photo_variants to CLI for debugging *)
+          let string_of_photo_variant v =
+            Printf.sprintf "{ thumbnail_url = %s; medium_url = %s; original_url = %s; filename = %s }"
+              v.thumbnail_url v.medium_url v.original_url v.filename
+          in
+          Printf.printf "[DEBUG] photo_variants:\n";
+          List.iter (fun v -> Printf.printf "[DEBUG]   %s\n" (string_of_photo_variant v)) photo_variants;
+
+          let content = Share_album.render ~album ~photos:photo_variants in
+          Template.Layout.render
+            ~title:("Shared Album: " ^ album.name)
+            ~content
+          |> Dream.html
       | None ->
           Dream.html ~status:`Not_Found "<h2>Invalid or expired share link</h2>"
     );

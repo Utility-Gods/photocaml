@@ -6,3 +6,11 @@ type album = {
   cover_image : string;
   created_at : string;
 }
+
+(* Shared photo_variant type for photo URL variants *)
+type photo_variant = {
+  thumbnail_url : string;
+  medium_url : string;
+  original_url : string;
+  filename : string;
+}
