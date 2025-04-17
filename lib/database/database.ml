@@ -275,15 +275,14 @@ module Cli = struct
           String.sub filename 0 (String.length filename - String.length ext)
         else filename
       in
-      let medium_file = Filename.temp_file ~temp_dir:"docs" (name_wo_ext ^ "_medium") ext in
-      let thumb_file = Filename.temp_file ~temp_dir:"docs" (name_wo_ext ^ "_thumbnail") ext in
-
       (* Check if file already exists in album, skip if it does *)
       let* exists = photo_exists db ~album_id ~filename in
       if exists then (
         log_info (Printf.sprintf "Skipping %s: already exists in album %s" filename album_id);
         Lwt.return_ok ()
       ) else (
+        let medium_file = Filename.temp_file ~temp_dir:"docs" (name_wo_ext ^ "_medium") ext in
+        let thumb_file = Filename.temp_file ~temp_dir:"docs" (name_wo_ext ^ "_thumbnail") ext in
         let run_convert src dest size =
           let cmd = Printf.sprintf "convert '%s' -resize '%s' '%s'" src size dest in
           Lwt_process.exec ("/bin/sh", [| "/bin/sh"; "-c"; cmd |]) >|= function

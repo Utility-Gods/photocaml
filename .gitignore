@@ -32,3 +32,6 @@ db.sqlite
 db.sqlite-journal
 
 docs/
+
+
+docker-build.logs

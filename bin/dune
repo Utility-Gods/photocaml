@@ -9,7 +9,6 @@
   lwt.unix
   caqti
   caqti-lwt
-  caqti-lwt.unix
   caqti-driver-postgresql
   dotenv
   uri

@@ -2,10 +2,11 @@
     FROM ocaml/opam:debian-ocaml-4.14 AS build
     WORKDIR /app
     COPY . .
+   
     RUN sudo chown -R opam:opam /app
-    ENV OPAMSOLVERTIMEOUT=600
+    ENV OPAMSOLVERTIMEOUT=1800
     RUN sudo apt-get update && sudo apt-get install -y \
-    libpq-dev pkg-config m4 libev-dev zlib1g-dev libssl-dev build-essential nginx \
+    libpq-dev pkg-config m4 libev-dev zlib1g-dev libssl-dev build-essential \
     libgmp-dev libpcre3-dev libffi-dev \
     && opam install . --deps-only -y \
     && eval $(opam env) \
