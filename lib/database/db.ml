@@ -5,7 +5,7 @@ open Lwt.Syntax
 
 (* Database connection pool 
    Type annotation ensures proper typing for the Caqti connection pool *)
-let pool : (Caqti_lwt.connection, Caqti_error.t) Caqti_lwt_unix.Pool.t option ref = ref None
+let pool : (Caqti_lwt.connection, Caqti_error.t) Caqti_lwt.Pool.t option ref = ref None
 
 (* Get database URL from environment 
    Example: postgres://user:pass@host:5432/dbname *)
@@ -25,8 +25,7 @@ let init ?(pool_size=10) () =
   let uri = Uri.of_string db_url in
   
   (* Create connection pool with specified size *)
-  let pool_config = Caqti_pool_config.create ~max_size:pool_size () in
-  match Caqti_lwt_unix.connect_pool ~pool_config uri with
+  match Caqti_lwt.connect_pool ~max_size:pool_size uri with
   | Ok p -> 
       pool := Some p;
       let* () = Lwt_io.printl "Database initialized successfully" in
@@ -50,14 +49,14 @@ let get_connection () =
    @return: Result of the database operation *)
 let with_connection f =
   let pool = get_connection () in
-  Caqti_lwt_unix.Pool.use f pool
+  Caqti_lwt.Pool.use f pool
 
 (* Clean up database connections 
    @return: Lwt unit promise after draining the connection pool *)
 let cleanup () =
   match !pool with
   | Some p -> 
-      let* () = Caqti_lwt_unix.Pool.drain p in
+      let* () = Caqti_lwt.Pool.drain p in
       Lwt.return_unit
   | None -> 
       Lwt.return_unit 

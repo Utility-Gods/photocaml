@@ -57,7 +57,7 @@ let init_db () =
   
   (* Connect and execute schema *)
   let%lwt connection = 
-    Caqti_lwt_unix.connect (Uri.of_string db_url) >>= function
+    Caqti_lwt.connect (Uri.of_string db_url) >>= function
     | Ok conn -> Lwt.return conn
     | Error err ->
         Printf.eprintf "Error connecting to database: %s\n" (Caqti_error.show err);

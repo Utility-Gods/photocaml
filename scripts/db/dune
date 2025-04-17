@@ -6,7 +6,6 @@
   lwt.unix
   caqti
   caqti-lwt
-  caqti-lwt.unix
   caqti-driver-postgresql
   cohttp-lwt-unix
   uri
