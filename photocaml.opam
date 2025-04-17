@@ -11,12 +11,14 @@ homepage: "https://github.com/username/photocaml"
 doc: "https://url/to/documentation"
 bug-reports: "https://github.com/username/photocaml/issues"
 depends: [
-  "ocaml" {>= "4.14.0"}
+  "ocaml" {>= "5.2.1"}
   "dune" {>= "3.14"}
   "lwt"
   "lwt_ppx"
+  "ppx_rapper_lwt"
   "caqti"
   "caqti-lwt"
+  "cohttp-lwt-unix"
   "caqti-driver-postgresql"
   "dotenv"
   "uri"

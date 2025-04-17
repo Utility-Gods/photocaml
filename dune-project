@@ -4,13 +4,13 @@
 
 
 (source
- (github username/photocaml))
+ (github utility-gods/photocaml))
 
-(authors "Your Name")
+(authors "Siddharth")
 
-(maintainers "Your Name")
+(maintainers "Siddharth")
 
-(license LICENSE)
+(license MIT)
 
 (documentation https://url/to/documentation)
 

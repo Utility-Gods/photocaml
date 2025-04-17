@@ -1,5 +1,5 @@
 # ---- Build Stage ----
-    FROM ocaml/opam:debian-ocaml-4.14 AS build
+    FROM ocaml/opam:debian-ocaml-5.2 AS build
     WORKDIR /app
     COPY . .
    
@@ -12,7 +12,7 @@
         && sudo rm -rf /var/lib/apt/lists/*
 
     # Use a fresh opam switch for reproducibility
-    RUN opam switch create . ocaml-base-compiler.4.14.0 || true
+    RUN opam switch create . ocaml-base-compiler.5.2.1 || true
     # Update opam repo and install deps with default solver (builtin-0install not available)
     RUN opam update && opam install . --deps-only -y
     # Build project
