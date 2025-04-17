@@ -181,6 +181,63 @@ let share_album_handler req =
   | None ->
       Dream.html ~status:`Not_Found "<h2>Invalid or expired share link</h2>"
 
+let share_photos_api_handler req =
+  let open Lwt.Syntax in
+  match Dream.query req "token", Dream.query req "offset", Dream.query req "limit" with
+  | Some token, Some offset_str, Some limit_str ->
+      let offset = int_of_string_opt offset_str |> Option.value ~default:0 in
+      let limit = int_of_string_opt limit_str |> Option.value ~default:5 in
+      let* result = Dream.sql req (fun db ->
+        let open Lwt.Syntax in
+        let* album_id_opt = Database.Db.get_album_id_by_share_token db token in
+        match album_id_opt with
+        | Some album_id ->
+            let* photos_result = Database.Db.get_photos_by_album_paginated ~album_id ~offset ~limit db in
+            (match photos_result with
+            | Ok photos -> Lwt.return_some (album_id, photos)
+            | _ -> Lwt.return_none)
+        | None -> Lwt.return_none
+      ) in
+      (match result with
+      | Some (album_id, photos) ->
+          let photo_variants = List.map (fun (photo : Database.Db.photo) ->
+            let filename = photo.Database.Db.filename in
+            let original_key = Filename.concat album_id filename in
+            let medium_key = Filename.concat album_id (append_variant_to_filename filename "medium") in
+            let thumbnail_key = Filename.concat album_id (append_variant_to_filename filename "thumbnail") in
+            let placeholder = "/static/img/placeholder.jpg" in
+            let build_url key =
+              match Database.S3.get_signed_url ~key ~expires_in:3600 with
+              | Ok url -> url
+              | Error _ -> placeholder
+            in
+            let medium_url =
+              let url = build_url medium_key in
+              if url = placeholder then build_url original_key else url
+            in
+            {
+              thumbnail_url = build_url thumbnail_key;
+              medium_url = medium_url;
+              original_url = build_url original_key;
+              filename = photo.Database.Db.filename;
+            }
+          ) photos in
+          let json =
+            `List (
+              List.map (fun v ->
+                `Assoc [
+                  ("thumbnail_url", `String v.thumbnail_url);
+                  ("medium_url", `String v.medium_url);
+                  ("original_url", `String v.original_url);
+                  ("filename", `String v.filename)
+                ]
+              ) photo_variants
+            )
+          in
+          Dream.json (Yojson.Safe.to_string json)
+      | None -> Dream.json ~status:`Not_Found "[]")
+  | _ -> Dream.json ~status:`Bad_Request "[]"
+
 (* === End Route Handlers Section === *)
 
 

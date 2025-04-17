@@ -43,6 +43,9 @@ let () =
     (* Public share route for albums *)
     Dream.get "/share/:token" share_album_handler;
 
+    (* Paginated API for share photos *)
+    Dream.get "/api/share_photos" share_photos_api_handler;
+
     (* Serve static files including uploads *)
     Dream.get "/static/**" (Dream.static "./static");
   ]
