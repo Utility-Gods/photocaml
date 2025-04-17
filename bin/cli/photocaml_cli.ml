@@ -49,8 +49,9 @@ let print_menu () =
   Printf.printf "==================\n";
   Printf.printf "1. List all albums\n";
   Printf.printf "2. Upload photos to album\n";
-  Printf.printf "3. Exit\n";
-  Printf.printf "\nEnter your choice (1-3): %!"
+  Printf.printf "3. Generate sharable album link\n";
+  Printf.printf "4. Exit\n";
+  Printf.printf "\nEnter your choice (1-4): %!"
 
 (* Get and validate directory path from user input
    Uses recursion to keep asking until a valid path is provided
@@ -67,9 +68,27 @@ let rec get_directory_path () =
 
 (* Get album ID from user input
    Simple input function that returns the entered string *)
-let get_album_id () =  (* Removed 'rec' as it's not recursive *)
-  Printf.printf "Enter the album ID: %!";
-  read_line ()  (* Read and return user input *)
+let select_album_interactive db =
+  let open Lwt.Syntax in
+  let* albums_result = Database.Cli.list_albums db in
+  match albums_result with
+  | Error _ ->
+      Printf.printf "Failed to fetch albums.\n%!";
+      Lwt.return_none
+  | Ok albums ->
+      if albums = [] then (Printf.printf "No albums found.\n"; Lwt.return_none)
+      else (
+        Printf.printf "\nSelect an album:\n";
+        List.iteri (fun i (album : Database.Db.album) ->
+          Printf.printf "%d. %s (ID: %s)\n" (i+1) album.name album.id
+        ) albums;
+        Printf.printf "Enter album number: %!";
+        match int_of_string_opt (read_line ()) with
+        | Some n when n > 0 && n <= List.length albums ->
+            Lwt.return_some (List.nth albums (n-1)).id
+        | _ -> Printf.printf "Invalid selection.\n"; Lwt.return_none
+      )
+
 
 (* Handle the list albums command
    Uses Lwt_main.run to execute async operations in synchronous context
@@ -107,7 +126,7 @@ let handle_list_albums () =
    - album_id: Target album's UUID
    - dir: Directory containing photos to upload
    Returns: int (0 for success, 1 for failure) *)
-let handle_upload_photos album_id dir =
+let handle_upload_photos_interactive () =
   Lwt_main.run (
     let* init_result = init_database () in
     match init_result with
@@ -115,15 +134,20 @@ let handle_upload_photos album_id dir =
         log_error "Failed to initialize database";
         Lwt.return 1
     | Ok () ->
-        (* Get list of files in directory, excluding . and .. *)
-        let* files = Lwt_unix.files_of_directory dir 
-          |> Lwt_stream.to_list 
-          |> Lwt.map (List.filter (fun f -> f <> "." && f <> ".."))
-          |> Lwt.map (List.map (Filename.concat dir))
-        in
-        (* Upload photos using database connection *)
         let* result = Database.with_connection (fun db ->
-          upload_photos ~db ~album_id ~files
+          let* album_id_opt = select_album_interactive db in
+          match album_id_opt with
+          | None ->
+              let msg = Caqti_error.Msg "No album selected" in
+              Lwt.return_error (Caqti_error.request_failed ~uri:(Uri.of_string "") ~query:"upload_photos" msg)
+          | Some album_id ->
+              let dir = get_directory_path () in
+              let* files = Lwt_unix.files_of_directory dir 
+                |> Lwt_stream.to_list 
+                |> Lwt.map (List.filter (fun f -> f <> "." && f <> ".."))
+                |> Lwt.map (List.map (Filename.concat dir))
+              in
+              upload_photos ~db ~album_id ~files
         ) in
         match result with
         | Error _ ->
@@ -136,9 +160,44 @@ let handle_upload_photos album_id dir =
             Lwt.return 0
   )
 
+
 (* Interactive menu loop
    Handles user input and dispatches to appropriate handlers
    Returns: int (0 for success) *)
+let handle_generate_share_link () =
+  Lwt_main.run (
+    let* init_result = init_database () in
+    match init_result with
+    | Error _ -> log_error "Failed to initialize database"; Lwt.return 1
+    | Ok () ->
+        let* result = Database.with_connection (fun db ->
+          let* album_id_opt = select_album_interactive db in
+          match album_id_opt with
+          | None ->
+              let msg = Caqti_error.Msg "No album selected" in
+              Lwt.return_error (Caqti_error.request_failed ~uri:(Uri.of_string "") ~query:"create_share" msg)
+          | Some album_id ->
+              let share_id = Database.Db.generate_id () in
+              let share_token = Database.Db.generate_id () in
+              let is_public = true in
+              let expires_at = None in
+              let* share_result = Database.Cli.create_share ~id:share_id ~album_id ~share_token ~is_public ~expires_at db in
+              match share_result with
+              | Ok () ->
+                  let domain = "https://yourdomain.com" in
+                  Printf.printf "Sharable link: %s/share/%s\n" domain share_token;
+                  Lwt.return_ok ()
+              | Error _ ->
+                  log_error "Failed to create share link";
+                  let msg = Caqti_error.Msg "Failed to create share link" in
+                  Lwt.return_error (Caqti_error.request_failed ~uri:(Uri.of_string "") ~query:"create_share" msg)
+        ) in
+        let* () = Database.cleanup () in
+        match result with
+        | Ok _ -> Lwt.return 0
+        | Error _ -> Lwt.return 1
+  )
+
 let interactive_menu () =
   let rec menu_loop () =
     print_menu ();
@@ -147,11 +206,12 @@ let interactive_menu () =
         let _ = handle_list_albums () in
         menu_loop ()
     | "2" -> 
-        let album_id = get_album_id () in
-        let dir = get_directory_path () in
-        let _ = handle_upload_photos album_id dir in
+        let _ = handle_upload_photos_interactive () in
         menu_loop ()
-    | "3" -> 
+    | "3" ->
+        let _ = handle_generate_share_link () in
+        menu_loop ()
+    | "4" -> 
         Printf.printf "\nGoodbye! 👋\n";
         0
     | _ -> 
@@ -172,16 +232,8 @@ let list_cmd =
 (* Upload command - uploads photos to an album *)
 let upload_cmd =
   let doc = "Upload photos to an album" in
-  let album_id =
-    let doc = "Album ID to upload to" in
-    Arg.(required & pos 0 (some string) None & info [] ~docv:"ALBUM_ID" ~doc)
-  in
-  let dir =
-    let doc = "Directory containing photos" in
-    Arg.(required & pos 1 (some string) None & info [] ~docv:"DIRECTORY" ~doc)
-  in
   let info = Cmd.info "upload" ~doc in
-  Cmd.v info Term.(const (fun id dir () -> handle_upload_photos id dir) $ album_id $ dir $ const ())
+  Cmd.v info Term.(const (fun () -> handle_upload_photos_interactive ()) $ const ())
 
 (* Interactive menu command *)
 let interactive_cmd =

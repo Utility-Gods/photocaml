@@ -214,6 +214,9 @@ end
 module Cli = struct
   open Lwt.Syntax
 
+  (* Expose create_share for CLI use *)
+  let create_share = Db.create_share
+
   (* Log functions for CLI operations *)
   let log_error msg = Printf.eprintf "[ERROR] %s\n%!" msg
   let log_info msg = Printf.printf "[INFO] %s\n%!" msg
