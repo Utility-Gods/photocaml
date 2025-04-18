@@ -96,12 +96,12 @@ Types.photo_variant list) : string =
     let offset = 0;
 
     // Render images into the grid
-    function renderPhotos() {
+    function renderPhotos(photos) {
       const grid = document.getElementById('photo-grid');
       if (offset === PAGE_SIZE) {
-  grid.innerHTML = '';
-}
-      loadedPhotos.forEach((photo, idx) => {
+        grid.innerHTML = '';
+      }
+      photos.forEach((photo, idx) => {
         const div = document.createElement('div');
         div.className = "aspect-square bg-gray-100 rounded-lg overflow-hidden cursor-pointer group";
         div.tabIndex = 0;
@@ -130,7 +130,7 @@ Types.photo_variant list) : string =
         if (Array.isArray(photos)) {
           loadedPhotos = loadedPhotos.concat(photos);
           offset += photos.length;
-          renderPhotos();
+          renderPhotos(photos);
           // If fewer than PAGE_SIZE returned, hide button (end reached)
           document.getElementById('load-more').style.display = (photos.length === PAGE_SIZE) ? '' : 'none';
         }
