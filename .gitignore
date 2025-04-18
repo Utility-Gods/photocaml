@@ -35,3 +35,9 @@ docs/
 
 
 docker-build.logs
+
+server.log
+
+build.log
+
+server.pid
