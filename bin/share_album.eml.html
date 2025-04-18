@@ -115,7 +115,9 @@ Types.photo_variant list) : string =
         div.className = "aspect-square bg-gray-100 rounded-lg overflow-hidden cursor-pointer group";
         div.tabIndex = 0;
         div.setAttribute('aria-label', 'View photo');
-        div.onclick = () => openGalleryModal(idx);
+        // Calculate the correct index in loadedPhotos
+        const globalIdx = loadedPhotos.length - photos.length + idx;
+        div.onclick = () => openGalleryModal(globalIdx);
         div.innerHTML = `<img src="${photo.thumbnail_url}" alt="${photo.filename}" class="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105" loading="lazy">`;
         grid.appendChild(div);
       });
