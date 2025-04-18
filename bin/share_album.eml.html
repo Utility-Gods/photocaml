@@ -22,65 +22,74 @@ Types.photo_variant list) : string =
     </button>
   </div>
   <!-- Gallery Modal -->
-  <div
-    id="gallery-modal"
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80 hidden"
-  >
-    <div
-      class="relative w-full max-w-md mx-auto bg-white rounded-lg shadow-lg overflow-hidden flex flex-col"
-    >
-      <button
-        onclick="closeGalleryModal()"
-        class="absolute top-2 right-2 text-gray-500 hover:text-red-600 text-2xl font-bold z-10"
-      >
-        &times;
-      </button>
-      <div class="flex items-center justify-between px-2 py-4">
-        <div class="flex-1 flex justify-center">
-          <img
-            id="gallery-img"
-            src=""
-            alt=""
-            class="max-h-[60vh] object-contain rounded shadow"
-          />
-        </div>
-      </div>
-      <div class="flex justify-between items-center gap-2 px-4 pb-4">
-        <button
-          id="prev-btn"
-          onclick="galleryPrev()"
-          class="p-2 text-gray-700 hover:text-red-600 disabled:opacity-50"
-          aria-label="Previous photo"
-        >
-          Previous
-        </button>
-        <div class="flex gap-4 w-full justify-center">
-          <a
-            id="download-btn"
-            href="#"
-            class="bg-red-600 text-white px-4 py-2 rounded shadow hover:bg-red-700 text-sm"
-            download
-            >Download</a
-          >
-          <button
-            id="share-btn"
-            onclick="shareCurrentPhoto()"
-            class="bg-gray-200 text-gray-700 px-4 py-2 rounded shadow hover:bg-gray-300 text-sm"
-          >
-            Share
-          </button>
-        </div>
-        <button
-          id="next-btn"
-          onclick="galleryNext()"
-          class="p-2 text-gray-700 hover:text-red-600 disabled:opacity-50"
-          aria-label="Next photo"
-        >
-          Next
+  <div id="gallery-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90 backdrop-blur-sm hidden">
+    <button onclick="closeGalleryModal()" aria-label="Close gallery" class="absolute top-6 right-8 bg-black bg-opacity-50 hover:bg-opacity-80 text-white rounded-full p-3 shadow-lg transition-all z-50 flex items-center justify-center">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+    </button>
+    <button id="prev-btn" onclick="galleryPrev()" aria-label="Previous photo" class="absolute left-6 top-1/2 -translate-y-1/2 bg-black bg-opacity-50 hover:bg-opacity-80 text-white rounded-full p-4 shadow-lg transition-all z-50 flex items-center justify-center disabled:opacity-30">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+    </button>
+    <div id="gallery-slider" class="relative flex flex-col items-center justify-center w-full h-full max-w-4xl max-h-[90vh] select-none">
+      <img id="gallery-img" src="" alt="" class="rounded-xl shadow-2xl max-h-[80vh] max-w-full object-contain transition-transform duration-500 ease-in-out" style="background:rgba(0,0,0,0.1);" draggable="false" />
+      <div class="absolute bottom-10 left-1/2 -translate-x-1/2 flex gap-4 z-40">
+        <a id="download-btn" href="#" class="bg-white bg-opacity-90 hover:bg-opacity-100 text-black rounded-full p-3 shadow transition-all" download aria-label="Download photo">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" /></svg>
+        </a>
+        <button id="share-btn" onclick="shareCurrentPhoto()" class="bg-white bg-opacity-90 hover:bg-opacity-100 text-black rounded-full p-3 shadow transition-all" aria-label="Share photo">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 8a3 3 0 00-6 0v4a3 3 0 006 0V8z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 10v6a2 2 0 01-2 2H7a2 2 0 01-2-2v-6" /></svg>
         </button>
       </div>
     </div>
+    <button id="next-btn" onclick="galleryNext()" aria-label="Next photo" class="absolute right-6 top-1/2 -translate-y-1/2 bg-black bg-opacity-50 hover:bg-opacity-80 text-white rounded-full p-4 shadow-lg transition-all z-50 flex items-center justify-center disabled:opacity-30">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+    </button>
   </div>
+
+  <style>
+    #gallery-modal {
+      animation: fadeIn 0.3s;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    #gallery-slider {
+      touch-action: pan-y;
+      cursor: grab;
+      user-select: none;
+    }
+    #gallery-slider.dragging {
+      cursor: grabbing;
+    }
+    #gallery-img {
+      transition: transform 0.4s cubic-bezier(.4,2,.6,1), opacity 0.3s;
+      will-change: transform, opacity;
+    }
+    #gallery-img.slide-left {
+      transform: translateX(-120vw) scale(0.9) rotate(-3deg);
+      opacity: 0;
+    }
+    #gallery-img.slide-right {
+      transform: translateX(120vw) scale(0.9) rotate(3deg);
+      opacity: 0;
+    }
+    #gallery-img.active {
+      transform: translateX(0) scale(1) rotate(0);
+      opacity: 1;
+    }
+    @media (max-width: 768px) {
+      #gallery-img {
+        max-height: 60vh;
+      }
+      #gallery-slider {
+        max-width: 100vw;
+      }
+      #gallery-modal button, #gallery-modal a {
+        p-2: 2 !important;
+      }
+    }
+  </style>
+
 
   <script>
     // Extract share token from URL
