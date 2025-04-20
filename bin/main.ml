@@ -21,24 +21,7 @@ let () =
       handler req)
   @@ Dream.sql_pool db_url
   @@ Dream.router [
-    Dream.get "/" home_handler;
 
-    Dream.get "/album" album_list_handler;
-
-    Dream.get "/album/new" new_album_page_handler;
-
-    Dream.post "/album/new" create_album_handler;
-
-    Dream.get "/album/:id" album_detail_handler;
-    
-    (* Upload page routes *)
-    Dream.get "/album/:id/upload" upload_page_handler;
-    
-    (* Handle photo uploads *)
-    Dream.post "/album/:id/upload" upload_photo_handler;
-
-    (* Delete album route handler *)
-    Dream.delete "/album/:id" delete_album_handler;
   
     (* Public share route for albums *)
     Dream.get "/share/:token" share_album_handler;
